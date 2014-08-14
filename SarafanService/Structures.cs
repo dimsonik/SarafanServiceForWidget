@@ -54,14 +54,6 @@ public struct StructPutModelPictureArgs
     }
 
 
-//public struct StructGetProductsArgs
-//    {
-//    public string picture;
-//    public List<int> retailer_id_list;
-//    public List<StructFilterItemPair> filter_item_list;
-//    public string locale;
-//    }
-
 //public struct StructFindProductsArgs
 //    {
 //    public int picture_id;
