@@ -1,0 +1,13 @@
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\FavoraimPartnersREST.dll.config
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\FavoraimPartnersREST.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\FavoraimPartnersREST.pdb
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Nancy.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Nancy.Hosting.Aspnet.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Nancy.xml
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Nancy.Hosting.Aspnet.xml
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\obj\Debug\FavoraimPartnersREST.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\obj\Debug\FavoraimPartnersREST.pdb
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\geocode.gapi.cdpisb.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Npgsql.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\bin\Mono.Security.dll
+D:\My\Work\Interest\FavoraimPartnersREST\FavoraimPartnersREST\obj\Debug\FavoraimPartnersREST.csprojResolveAssemblyReference.cache

@@ -1,0 +1,13 @@
+D:\My\Work\Interest\SarafanService\SarafanService\bin\SarafanService.dll.config
+D:\My\Work\Interest\SarafanService\SarafanService\bin\SarafanService.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\SarafanService.pdb
+D:\My\Work\Interest\SarafanService\SarafanService\bin\geocode.gapi.cdpisb.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.Hosting.Aspnet.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Npgsql.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Mono.Security.dll
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.xml
+D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.Hosting.Aspnet.xml
+D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.dll
+D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.pdb
+D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.csprojResolveAssemblyReference.cache
