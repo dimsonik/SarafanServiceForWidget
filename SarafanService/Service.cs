@@ -1106,6 +1106,14 @@ namespace SarafanService
                 string strPicturesBaseUrl = ServUtility.ReadStringFromConfig("pictures_url");
                 string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
 
+
+                NpgsqlCommand command2 = new NpgsqlCommand();
+                command2.Connection = conn;
+                command2.CommandText = "SELECT picture FROM db_product_pictures WHERE id_product = :idp;";
+                command2.Parameters.Add(new NpgsqlParameter("idp", DbType.Int32));
+                command2.Prepare();
+
+
                 NpgsqlCommand command = new NpgsqlCommand();
                 command.Connection = conn;
 
@@ -1140,7 +1148,7 @@ namespace SarafanService
                         product.name = data.GetString(1);
                         product.price = data.GetDouble(2);
                         product.buyurl = data.GetString(3);
-                        product.picture = data.GetString(4);
+                        product.picture_remote = data.GetString(4);
                         product.retailer_id = data.GetInt32(5);
                         
                         if(!data.IsDBNull(6))
@@ -1157,42 +1165,34 @@ namespace SarafanService
                         product.currency = data.GetString(9);
 
 
-                        //if (ServUtility.FileExists(strPicturesFolder + "photo_" + product.id.ToString() + "_1." + strFileFormat))
-                        //    {
-                        //    product.picture_local = strPicturesBaseUrl + "photo_" + product.id.ToString() + "_1." + strFileFormat;
-                        //    }
-                        //else
-                        //    {
-                        //    NpgsqlCommand command2 = new NpgsqlCommand();
-                        //    command2.Connection = conn;
+                        if (ServUtility.FileExists(strPicturesFolder + "photo_" + product.id.ToString() + "_1." + strFileFormat))
+                            {
+                            product.picture = strPicturesBaseUrl + "photo_" + product.id.ToString() + "_1." + strFileFormat;
+                            }
+                        else
+                            {
+                            command2.Parameters[0].Value = product.id;
 
-                        //    command2.CommandText = "SELECT picture FROM db_product_pictures WHERE id_product = :idp;";
+                            NpgsqlDataReader data2 = command2.ExecuteReader();
 
-                        //    command2.Parameters.Add(new NpgsqlParameter("idpr", DbType.Int32));
+                            if (data2.HasRows)
+                                {
+                                data2.Read();
 
-                        //    command2.Prepare();
-                        //    command2.Parameters[0].Value = product.id;
+                                byte[] arrPhoto = ServUtility.GetBinaryFieldValue(ref data2, 0);
 
-                        //    NpgsqlDataReader data2 = command2.ExecuteReader();
+                                if (arrPhoto != null && arrPhoto.GetLength(0) > 0)
+                                    {
+                                    string strPhotoUrl = strPicturesBaseUrl + "photo_" + product.id.ToString() + "_1." + strFileFormat;
+                                    string strPhotoPath = strPicturesFolder + "photo_" + product.id.ToString() + "_1." + strFileFormat;
 
-                        //    if (data2.HasRows)
-                        //        {
-                        //        data2.Read();
+                                    if (!ServUtility.IdenticalFileExists(strPhotoPath, arrPhoto.GetLength(0)))
+                                        File.WriteAllBytes(strPhotoPath, arrPhoto);
 
-                        //        byte[] arrPhoto = ServUtility.GetBinaryFieldValue(ref data2, 0);
-
-                        //        if (arrPhoto != null && arrPhoto.GetLength(0) > 0)
-                        //            {
-                        //            string strPhotoUrl = strPicturesBaseUrl + "photo_" + product.id.ToString() + "_1." + strFileFormat;
-                        //            string strPhotoPath = strPicturesFolder + "photo_" + product.id.ToString() + "_1." + strFileFormat;
-
-                        //            if (!ServUtility.IdenticalFileExists(strPhotoPath, arrPhoto.GetLength(0)))
-                        //                File.WriteAllBytes(strPhotoPath, arrPhoto);
-
-                        //            product.picture_local = strPhotoUrl;
-                        //            }
-                        //        }
-                        //    }
+                                    product.picture = strPhotoUrl;
+                                    }
+                                }
+                            }
 
 
 

@@ -161,7 +161,7 @@ public struct StructProduct
     public string currency;
     public double price;
     public int retailer_id;
-    //public string picture_local;
+    public string picture_remote;
     }
 
 

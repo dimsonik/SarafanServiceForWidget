@@ -10,4 +10,3 @@ D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.xml
 D:\My\Work\Interest\SarafanService\SarafanService\bin\Nancy.Hosting.Aspnet.xml
 D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.dll
 D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.pdb
-D:\My\Work\Interest\SarafanService\SarafanService\obj\Debug\SarafanService.csprojResolveAssemblyReference.cache
