@@ -162,9 +162,16 @@ public struct StructProduct
     public double price;
     public int retailer_id;
     public string picture_remote;
+    public List<StructPicture> pictures;
     }
 
-
+public struct StructPicture
+    {
+    public int id;
+    public string url;
+    public int width;
+    public int height;
+    }
 
 public struct StructFilters
     {

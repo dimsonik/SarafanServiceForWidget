@@ -265,7 +265,7 @@ namespace SarafanService
                     .WithContentType("application/json");
                 }
 
-            products = GetProductsInfo(args);
+            products = GetProductsInfo2(args);
 
             return Negotiate
                 .WithStatusCode(HttpStatusCode.OK)
@@ -273,6 +273,38 @@ namespace SarafanService
                 .WithContentType("application/json");
             };
 
+
+
+            ///////////////////////////////////
+            //Post["/v1/product_info/get2"] = x =>
+            //{
+            //StructGetProductInfoArgs args = new StructGetProductInfoArgs();
+
+            //StructProducts products = new StructProducts();
+            //products.result = new StructResult();
+
+            //try
+            //    {
+            //    args = this.Bind<StructGetProductInfoArgs>();
+            //    }
+            //catch
+            //    {
+            //    products.result.result_code = ResultCode.Failure_InvalidInputJson;
+            //    products.result.message = "Invalid input JSON";
+
+            //    return Negotiate
+            //        .WithStatusCode(HttpStatusCode.OK)
+            //        .WithModel(products)
+            //        .WithContentType("application/json");
+            //    }
+
+            //products = GetProductsInfo2(args);
+
+            //return Negotiate
+            //    .WithStatusCode(HttpStatusCode.OK)
+            //    .WithModel(products)
+            //    .WithContentType("application/json");
+            //};
 
 
 
@@ -1117,7 +1149,7 @@ namespace SarafanService
                 NpgsqlCommand command = new NpgsqlCommand();
                 command.Connection = conn;
 
-                command.CommandText = @"SELECT p.id_product, p.name, p.retailprice * 100, p.buyurl, p.imageurl, p.id_retailer, pp.width, pp.height, pp.file_format, p.currency
+                command.CommandText = @"SELECT p.id_product, p.name, p.retailprice * 100, p.buyurl, p.imageurl, p.id_retailer, p.currency, pp.width, pp.height, pp.file_format
                                     FROM db_search_results sr
                                     INNER JOIN db_products p ON sr.id_search_request = :isr AND p.id_product = sr.id_product 
                                     LEFT JOIN db_product_pictures pp ON pp.id_product = p.id_product
@@ -1143,6 +1175,7 @@ namespace SarafanService
                         {
 
                         StructProduct product = new StructProduct();
+                        product.pictures = new List<StructPicture>();
 
                         product.id = data.GetInt32(0);
                         product.name = data.GetString(1);
@@ -1150,20 +1183,18 @@ namespace SarafanService
                         product.buyurl = data.GetString(3);
                         product.picture_remote = data.GetString(4);
                         product.retailer_id = data.GetInt32(5);
+                        product.currency = data.GetString(6);
                         
-                        if(!data.IsDBNull(6))
-                            product.picture_width = data.GetInt32(6);
+                        if(!data.IsDBNull(7))
+                            product.picture_width = data.GetInt32(7);
 
-                        if (!data.IsDBNull(7))
-                            product.picture_height = data.GetInt32(7);
+                        if (!data.IsDBNull(8))
+                            product.picture_height = data.GetInt32(8);
 
                         string strFileFormat = "";
                         
-                        if (!data.IsDBNull(8))
-                            strFileFormat = data.GetString(8);
-
-                        product.currency = data.GetString(9);
-
+                        if (!data.IsDBNull(9))
+                            strFileFormat = data.GetString(9);
 
                         if (ServUtility.FileExists(strPicturesFolder + "photo_" + product.id.ToString() + "_1." + strFileFormat))
                             {
@@ -1230,165 +1261,212 @@ namespace SarafanService
             }
 
 
+        //+///////////////////////////////////////////////////////////////////////
+        public StructProducts GetProductsInfo2(StructGetProductInfoArgs args)
+            {
+            StructProducts products = new StructProducts();
+            products.result = new StructResult();
+            products.products = new List<StructProduct>();
+
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            if (args.locale == null || args.locale.Length == 0)
+                args.locale = "en";
+
+            if (!ServUtility.IsServiceAvailable(ref products.result, args.locale))
+                {
+                return products;
+                }
+
+
+            NpgsqlConnection conn = null;
+
+
+            try
+                {
+                if (!Connect(out conn, ref products.result))
+                    {
+                    return products;
+                    }
+
+                ServUtility.DeleteOutdatedSearchRequests(ref conn);
+                ServUtility.DeleteOutdatedModelPictures(ref conn);
+
+                if (!ServUtility.IsSearchRequestValid(ref conn, args.find_request_id))
+                    {
+                    products.result.result_code = ResultCode.Failure_SessionExpired;
+                    products.result.message = "Session expired";
+
+                    return products;
+                    }
+
+                string strPicturesBaseUrl = ServUtility.ReadStringFromConfig("pictures_url");
+                string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
+
+
+                NpgsqlCommand command2 = new NpgsqlCommand();
+                command2.Connection = conn;
+                command2.CommandText = "SELECT picture FROM db_product_pictures WHERE id_product_picture = :idpp;";
+                command2.Parameters.Add(new NpgsqlParameter("idpp", DbType.Int32));
+                command2.Prepare();
+
+
+                NpgsqlCommand command = new NpgsqlCommand();
+                command.Connection = conn;
+
+                command.CommandText = @"SELECT idp, first(inn.nm), first(price), first(bu), first(iu), first(idr), first(cur), COUNT(ipp), string_agg(CAST (ipp AS text), '#'), string_agg(CAST (width AS text), '#'), string_agg(CAST (height AS text), '#'), string_agg(ff, '#') 
+                                        FROM (SELECT p.id_product idp, p.name nm, p.retailprice * 100 price, p.buyurl bu, p.imageurl iu, p.id_retailer idr, pp.id_product_picture ipp, pp.width width, pp.height height, pp.file_format ff, p.currency cur
+                                        FROM db_search_results sr
+                                        INNER JOIN db_products p ON sr.id_search_request = :isr AND p.id_product = sr.id_product 
+                                        LEFT JOIN db_product_pictures pp ON pp.id_product = p.id_product
+                                        ORDER BY sr.id_search_result
+                                        LIMIT :lmt
+                                        OFFSET :off) AS inn
+                                        GROUP BY inn.idp;";
+
+                command.Parameters.Add(new NpgsqlParameter("isr", DbType.Int32));
+                command.Parameters.Add(new NpgsqlParameter("lmt", DbType.Int32));
+                command.Parameters.Add(new NpgsqlParameter("off", DbType.Int32));
+
+                command.Prepare();
+
+                command.Parameters[0].Value = args.find_request_id;
+                command.Parameters[1].Value = args.max_items;
+                command.Parameters[2].Value = args.offset;
+
+                NpgsqlDataReader data = command.ExecuteReader();
+
+                if (data.HasRows)
+                    {
+                    while (data.Read())
+                        {
+                        StructProduct product = new StructProduct();
+                        product.pictures = new List<StructPicture>();
+
+                        product.id = data.GetInt32(0);
+                        product.name = data.GetString(1);
+                        product.price = data.GetDouble(2);
+                        product.buyurl = data.GetString(3);
+                        product.picture_remote = data.GetString(4);
+                        product.retailer_id = data.GetInt32(5);
+                        product.currency = data.GetString(6);
+
+                        int nNumPictures = (int) data.GetInt64(7);
+
+                        string strIdPicture = "";
+                        string strWidth = "";
+                        string strHeight = "";
+                        string strFFormat = "";
+
+                        if (!data.IsDBNull(8))
+                            strIdPicture = data.GetString(8);
+
+                        if (!data.IsDBNull(9))
+                            strWidth = data.GetString(9);
+
+                        if (!data.IsDBNull(10))
+                            strHeight = data.GetString(10);
+
+                        if (!data.IsDBNull(11))
+                            strFFormat = data.GetString(11);
+
+                        string[] arrIdPicture = strIdPicture.Split(new Char[] { '#' });
+                        string[] arrWidth = strWidth.Split(new Char[] { '#' });
+                        string[] arrHeight = strHeight.Split(new Char[] { '#' });
+                        string[] arrFFormat = strFFormat.Split(new Char[] { '#' });
+
+                        if(!(nNumPictures == arrIdPicture.GetLength(0) && nNumPictures == arrWidth.GetLength(0) && nNumPictures == arrHeight.GetLength(0) && nNumPictures == arrFFormat.GetLength(0)))
+                            continue;
 
 
 
-//        //+///////////////////////////////////////////////////////////////////////
-//        public StructProducts GetProducts(StructGetProductsArgs args, string strBody)
-//            {
-//            StructProducts products = new StructProducts();
-//            products.result = new StructResult();
-//            products.products = new List<StructProduct>();
+                        for(int i = 0; i < arrIdPicture.GetLength(0); ++i)
+                            {
+                            StructPicture picture = new StructPicture();
 
-//            Stopwatch sw = new Stopwatch();
-//            sw.Start();
+                            int nIdPicture = Convert.ToInt32(arrIdPicture[i]);
+                            int nWidth = Convert.ToInt32(arrWidth[i]);
+                            int nHeight = Convert.ToInt32(arrHeight[i]);
+                            string strFileFormat = arrFFormat[i];
 
+                            picture.id = nIdPicture;
+                            picture.width = nWidth;
+                            picture.height = nHeight;
 
-//            if (!ServUtility.IsServiceAvailable(ref products.result, args.locale))
-//                {
-//                return products;
-//                }
+                            if (ServUtility.FileExists(strPicturesFolder + "product_photo_" + nIdPicture.ToString() + "_1." + strFileFormat))
+                                {
+                                picture.url = strPicturesBaseUrl + "product_photo_" + nIdPicture.ToString() + "_1." + strFileFormat;
+                                }
 
+                            else
+                                {
+                                command2.Parameters[0].Value = nIdPicture;
 
-//            //int nIdUser = -1;
-//            NpgsqlConnection conn = null;
+                                NpgsqlDataReader data2 = command2.ExecuteReader();
 
+                                if (data2.HasRows)
+                                    {
+                                    data2.Read();
 
-//            try
-//                {
-//                if (!Connect(out conn, ref products.result))
-//                    {
-//                    return products;
-//                    }
+                                    byte[] arrPhoto = ServUtility.GetBinaryFieldValue(ref data2, 0);
 
-//                Dictionary<string, List<string>> dictFilterItems = new Dictionary<string, List<string>>();
+                                    if (arrPhoto != null && arrPhoto.GetLength(0) > 0)
+                                        {
+                                        string strPhotoUrl = strPicturesBaseUrl + "product_photo_" + nIdPicture.ToString() + "_1." + strFileFormat;
+                                        string strPhotoPath = strPicturesFolder + "product_photo_" + nIdPicture.ToString() + "_1." + strFileFormat;
 
-//                foreach (StructFilterItemPair pair in args.filter_item_list)
-//                    {
-//                    if (dictFilterItems.ContainsKey(pair.name))
-//                        {
-//                        dictFilterItems[pair.name].Add(pair.value);
-//                        }
-//                    else
-//                        {
-//                        dictFilterItems.Add(pair.name, new List<string> { pair.value });
-//                        }
-//                    }
+                                        if (!ServUtility.IdenticalFileExists(strPhotoPath, arrPhoto.GetLength(0)))
+                                            File.WriteAllBytes(strPhotoPath, arrPhoto);
 
+                                        picture.url = strPhotoUrl;
+                                        }
+                                    }
+                                }
 
-//                NpgsqlCommand command = new NpgsqlCommand();
-//                command.Connection = conn;
+                            product.pictures.Add(picture);
+                            }
 
-//                string strSQL = @"SELECT p.id_product, p.name, p.retailprice, p.buyurl, p.imageurl, p.id_retailer FROM 
-//                                        (
-//                                        ";
-
-//                string strSQL2 = @"
-//                                   SELECT DISTINCT id_product FROM dbl_product_filter_items
-//                                   WHERE id_filter_item IN 
-//                                   (SELECT id_filter_item FROM db_filter_items WHERE 
-//                                   (id_filter = (SELECT id_filter FROM db_filters WHERE ""name"" = '{0}') AND ({1})))";
-
-//                string strSQL3 = @"item_value = '{0}'";
-
-//                string strSQL4 = @") AS inn
-//                                   LEFT JOIN db_products p ON p.id_product = inn.id_product
-//                                   ";
-
-//                string strSQL5 = @"
-//                                  LIMIT 100;";
-
-//                foreach(var filter in dictFilterItems)
-//                    {
-//                    string strTmp = "";
-
-//                    foreach(string item in filter.Value)
-//                        {
-//                        strTmp += String.Format(strSQL3, item) + " OR ";
-//                        }
-
-//                    strTmp = strTmp.Substring(0, strTmp.Length - 4);
-
-//                    strTmp = String.Format(strSQL2, filter.Key, strTmp);
-
-//                    strSQL += "\n" + strTmp + "\n INTERSECT" + "\n";
-//                    }
-
-//                strSQL = strSQL.Substring(0, strSQL.Length - 10) + strSQL4;
-
-//                if(args.retailer_id_list != null && args.retailer_id_list.Count > 0)
-//                    {
-//                    string strSQL6 = " AND p.id_retailer IN ({0})";
-
-//                    string strSQL7 = "";
-
-//                    strSQL7 = args.retailer_id_list[0].ToString();
-
-//                    for(int i = 1; i < args.retailer_id_list.Count; ++i)
-//                        {
-//                        strSQL7 += ", " + args.retailer_id_list[i].ToString();
-//                        }
-
-//                    strSQL6 = String.Format(strSQL6, strSQL7);
-
-//                    strSQL += "\n" + strSQL6 + "\n";
-//                    }
-
-//                strSQL += strSQL5;
-
-//                command.CommandText = strSQL;
-
-//                //products.sql = strSQL;
-
-//                command.Prepare();
-
-//                NpgsqlDataReader data = command.ExecuteReader();
-
-//                if (data.HasRows)
-//                    {
-//                    while (data.Read())
-//                        {
-
-//                        StructProduct product = new StructProduct();
-
-//                        product.id = data.GetInt32(0);
-//                        product.name = data.GetString(1);
-//                        product.price = data.GetDouble(2);
-//                        product.buyurl = data.GetString(3);
-//                        product.picture = data.GetString(4);
-//                        product.retailer_id = data.GetInt32(5);
-
-//                        products.products.Add(product);
-
-//                        }
-//                    }
+                        if (product.pictures != null && product.pictures.Count > 0)
+                            {
+                            product.picture = product.pictures[0].url;
+                            product.picture_width = product.pictures[0].width;
+                            product.picture_height = product.pictures[0].height;
+                            }
+                        
+                        products.products.Add(product);
+                        }
+                    }
 
 
 
-//                return products;
-//                }
-//            catch (Exception e)
-//                {
-//                products.result.message = e.Message;
-//                products.result.result_code = ResultCode.Failure_InternalServiceError;
+                return products;
+                }
+            catch (Exception e)
+                {
+                products.result.message = e.Message;
+                products.result.result_code = ResultCode.Failure_InternalServiceError;
 
-//                return products;
-//                }
-//            finally
-//                {
-//                sw.Stop();
+                return products;
+                }
+            finally
+                {
+                sw.Stop();
 
-//                if (conn != null)
-//                    {
-//                    ServUtility.LogMethodCall(ref conn, -1, MethodBase.GetCurrentMethod().Name, products.result.ToString(), null, null, args.locale, "", (int)sw.ElapsedMilliseconds, strBody);
+                if (conn != null)
+                    {
+                    string strBody = ServUtility.GetRequestBody();
 
-//                    //if (events.result.result_code == ResultCode.Success)
-//                    //    ServUtility.UpdateStatData(ref conn, -2, "consume", strLocale, "", id_, null);
+                    ServUtility.LogMethodCall(ref conn, -1, MethodBase.GetCurrentMethod().Name, products.result.ToString(), null, null, args.locale, "", (int)sw.ElapsedMilliseconds, strBody);
 
-//                    conn.Close();
-//                    }
-//                }
-//            }
+                    //if (events.result.result_code == ResultCode.Success)
+                    //    ServUtility.UpdateStatData(ref conn, -2, "consume", strLocale, "", id_, null);
+
+                    conn.Close();
+                    }
+                }
+            }
+
 
 
 
