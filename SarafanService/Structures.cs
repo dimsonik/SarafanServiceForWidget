@@ -6,6 +6,7 @@ using System.Xml.Serialization;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
+using System.Runtime.InteropServices;
 
 namespace SarafanService
 {
@@ -54,19 +55,12 @@ public struct StructPutModelPictureArgs
     }
 
 
-//public struct StructFindProductsArgs
-//    {
-//    public int picture_id;
-//    public List<int> retailer_id_list;
-//    public List<StructFilterItemPair> filter_item_list;
-//    public string locale;
-//    }
-
-//public struct StructFilterItemPair
-//    {
-//    public string name;
-//    public string value;
-//    }
+public struct StructComparePicturesArgs
+    {
+    public string picture1;
+    public string picture2;
+    public string locale;
+    }
 
 public struct StructFindProductsArgs2
     {
@@ -89,6 +83,26 @@ public struct StructGetProductInfoArgs
     public int max_items;
     public int offset;
     public string locale;
+    }
+
+
+public struct StructGetModelPictureArgs
+    {
+    public int id_model_picture;
+    public string locale;
+    }
+
+
+///////////////////////////////////////////////////////////////
+
+public struct StructPicturesCompared
+    {
+    public double distance;
+
+    public float[] descs_1;
+    public float[] descs_2;
+
+    public StructResult result;
     }
 
 
@@ -122,7 +136,7 @@ public struct StructFindRequestId
     public int find_request_id;
     public int num_products_found;
 
-    //public string sql;
+    public string dbg;
 
     public StructResult result;
     }
@@ -145,6 +159,8 @@ public struct StructProducts
 
     //public string sql;
 
+    //public string strExc;
+
     public StructResult result;
     }
 
@@ -161,7 +177,9 @@ public struct StructProduct
     public string currency;
     public double price;
     public int retailer_id;
-    public string picture_remote;
+    public double distance;
+    //public string most_relevant_picture;
+    //public string picture_remote;
     public List<StructPicture> pictures;
     }
 
@@ -196,6 +214,47 @@ public struct StructFilterItem
     public string item_name;
     }
 
+public struct StructModelPicture
+    {
+    public int id_model_picture;
+    public string url;
+    //public int width;
+    //public int height;
+
+    public StructResult result;
+    }
+
+
+
+public struct StructDescriptors
+    {
+    public float[] descs_1;
+    public float[] descs_2;
+
+    public string dbg;
+
+    public StructResult result;
+    }
+
+[StructLayout(LayoutKind.Sequential)]
+public struct StructColorImage
+    {
+    public int width;
+    public int height;
+
+    public float[] c1;
+    public float[] c2;
+    public float[] c3;
+    };
+
+[StructLayout(LayoutKind.Sequential)]
+public struct StructBWImage
+    {
+    public int width;
+    public int height;
+
+    public float[] c1;
+    };
 
 
 }

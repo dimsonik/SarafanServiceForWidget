@@ -57,7 +57,6 @@ namespace SarafanService
 
 
         ////////////////////////////////////////////////////////////////////////////
-        ////////////////////////////////////////////////////////////////////////////
         public static string GetRequestBody()
         {
         Stream str = HttpContext.Current.Request.InputStream;
@@ -74,7 +73,6 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////
         public static bool IsSearchRequestValid(ref NpgsqlConnection conn, int nIdSearchRequest)
         {
@@ -99,7 +97,6 @@ namespace SarafanService
 
 
         //////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////////////////////////////////////////////
         public static bool IsModelPictureValid(ref NpgsqlConnection conn, int nIdModelPicture)
         {
         NpgsqlCommand commandExists = new NpgsqlCommand();
@@ -123,34 +120,30 @@ namespace SarafanService
 
 
 
-
-        //////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////
         public static void DeleteOutdatedSearchRequests(ref NpgsqlConnection conn)
         {
         NpgsqlCommand commandDeleteMarked = new NpgsqlCommand();
         commandDeleteMarked.Connection = conn;
-        commandDeleteMarked.CommandText = "DELETE FROM db_search_requests WHERE current_timestamp >= (\"timestamp\" + INTERVAL '2' DAY);";
+        commandDeleteMarked.CommandText = "DELETE FROM db_search_requests WHERE current_timestamp >= (\"timestamp\" + INTERVAL '5' DAY);";
         commandDeleteMarked.Prepare();
 
         commandDeleteMarked.ExecuteNonQuery();
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////////
         public static void DeleteOutdatedModelPictures(ref NpgsqlConnection conn)
         {
         NpgsqlCommand commandDeleteMarked = new NpgsqlCommand();
         commandDeleteMarked.Connection = conn;
-        commandDeleteMarked.CommandText = "DELETE FROM db_model_pictures WHERE current_timestamp >= (\"timestamp\" + INTERVAL '2' DAY);";
+        commandDeleteMarked.CommandText = "DELETE FROM db_model_pictures WHERE current_timestamp >= (\"timestamp\" + INTERVAL '5' DAY);";
         commandDeleteMarked.Prepare();
 
         commandDeleteMarked.ExecuteNonQuery();
         }
 
 
-		//////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
 		public static string[] SplitAndClearPhrase(string strInput)
 		{
@@ -173,7 +166,6 @@ namespace SarafanService
 
 
 		//////////////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////////////
 		public static int CountWordsInPhrase(string strInput)
 		{
 		string[] arrWords =	strInput.Split(new char[] {' ', '.','?', ',', '\n', '!', ';', ':'}, StringSplitOptions.RemoveEmptyEntries);
@@ -183,7 +175,6 @@ namespace SarafanService
 
 		
 		
-		//////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
 		public static ArrayList SplitTsVectorResult(string str)
 		{
@@ -205,7 +196,6 @@ namespace SarafanService
 
 
 		//////////////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////////////
 		public static string JoinArrayList(ArrayList arr, string strSep)
 		{
         string strRes = "";
@@ -225,38 +215,220 @@ namespace SarafanService
 		return strRes;	
 		}
 
-		
-		//////////////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////////////
-		public static ArrayList SplitSearchPhraze(ref NpgsqlConnection conn, string str)
-		{
-		NpgsqlCommand command = new NpgsqlCommand();
-		command.Connection = conn;
-		
-		command.CommandText = "SELECT to_tsvector('ru', :str);";
-		
-        command.Parameters.Add(new NpgsqlParameter("str", DbType.String));
-		
-		command.Prepare();
 
-		command.Parameters[0].Value = str;
+        /////////////////////////////////////////////////////////////
+        public static byte[] GetFloatArrayAsByteArray(float[] values)
+        {
+        var result = new byte[values.Length * sizeof(float)];
+        Buffer.BlockCopy(values, 0, result, 0, result.Length);
+        return result;
+        }
 
-		NpgsqlDataReader data = command.ExecuteReader();
+
+        /////////////////////////////////////////////////////////////
+        public static float[] GetByteArrayAsFloatArray(byte[] bytes)
+        {
+        var result = new float[bytes.Length / sizeof(float)];
+        Buffer.BlockCopy(bytes, 0, result, 0, bytes.Length);
+        return result;
+        }
+
+
+        /////////////////////////////////////////////////////////////
+        public static StructColorImage LoadImage(Image img_orig)
+            {
+            Image img = ServUtility.FixedSize(img_orig, 256, 256);
+
+            Bitmap bmp = new Bitmap(img);
+
+            StructColorImage ci = new StructColorImage();
+
+            ci.width = img.Width;
+            ci.height = img.Height;
+
+            ci.c1 = new float[ci.width * ci.height];
+            ci.c2 = new float[ci.width * ci.height];
+            ci.c3 = new float[ci.width * ci.height];
+
+            for (int x = 0; x < ci.width; ++x)
+                {
+                for (int y = 0; y < ci.width; ++y)
+                    {
+                    int n = y * ci.width + x;
+
+                    ci.c1[n] = bmp.GetPixel(x, y).R;
+                    ci.c2[n] = bmp.GetPixel(x, y).G;
+                    ci.c3[n] = bmp.GetPixel(x, y).B;
+                    }
+                }
+
+            return ci;
+            }
+
+
+
+        /////////////////////////////////////////////////////////////
+        public static StructBWImage LoadBWImage(Image img_orig)
+            {
+            Image img = ServUtility.FixedSize(img_orig, 256, 256);
+
+            Bitmap bmp = new Bitmap(img);
+
+            StructBWImage ci = new StructBWImage();
+
+            ci.width = img.Width;
+            ci.height = img.Height;
+
+            ci.c1 = new float[ci.width * ci.height];
+
+            for (int x = 0; x < ci.width; ++x)
+                {
+                for (int y = 0; y < ci.width; ++y)
+                    {
+                    int n = y * ci.width + x;
+
+                    ci.c1[n] = (bmp.GetPixel(x, y).R + bmp.GetPixel(x, y).G + bmp.GetPixel(x, y).B) / 3;
+                    }
+                }
+
+            return ci;
+            }        
+        
+        
+        /////////////////////////////////////////////////////////////
+        public static StructColorImage LoadImage(Image img_orig, out Image img_resized)
+        {
+        Image img = ServUtility.FixedSize(img_orig, 256, 256);
+
+        img_resized = img;
+
+        Bitmap bmp = new Bitmap(img);
+
+        StructColorImage ci = new StructColorImage();
+
+        ci.width = img.Width;
+        ci.height = img.Height;
+
+        ci.c1 = new float[ci.width * ci.height];
+        ci.c2 = new float[ci.width * ci.height];
+        ci.c3 = new float[ci.width * ci.height];
+
+        for (int x = 0; x < ci.width; ++x)
+            {
+            for (int y = 0; y < ci.width; ++y)
+                {
+                int n = y * ci.width + x;
+
+                ci.c1[n] = bmp.GetPixel(x, y).R;
+                ci.c2[n] = bmp.GetPixel(x, y).G;
+                ci.c3[n] = bmp.GetPixel(x, y).B;
+                }
+            }
+
+        return ci;
+        }        
+        
+
+
+        /////////////////////////////////////////////////////////////
+        public static Image FixedSize(Image imgPhoto, int Width, int Height)
+        {
+        int sourceWidth = imgPhoto.Width;
+        int sourceHeight = imgPhoto.Height;
+
+        int sourceX = 0;
+        int sourceY = 0;
+        int destX = 0;
+        int destY = 0;
+
+        float nPercent = 0;
+        float nPercentW = 0;
+        float nPercentH = 0;
+
+        nPercentW = ((float)Width / (float)sourceWidth);
+        nPercentH = ((float)Height / (float)sourceHeight);
+
+        if (nPercentH < nPercentW)
+            {
+            nPercent = nPercentH;
+            destX = System.Convert.ToInt16((Width - (sourceWidth * nPercent)) / 2);
+            }
+        else
+            {
+            nPercent = nPercentW;
+            destY = System.Convert.ToInt16((Height - (sourceHeight * nPercent)) / 2);
+            }
+
+        int destWidth = (int)(sourceWidth * nPercent);
+        int destHeight = (int)(sourceHeight * nPercent);
+
+        Bitmap bmPhoto = new Bitmap(Width, Height, imgPhoto.PixelFormat);
+        //bmPhoto.SetResolution(imgPhoto.HorizontalResolution, imgPhoto.VerticalResolution);
+
+        Graphics grPhoto = Graphics.FromImage(bmPhoto);
+        grPhoto.Clear(Color.Black);
+        grPhoto.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+        grPhoto.DrawImage(imgPhoto,
+            new Rectangle(destX, destY, destWidth, destHeight),
+            new Rectangle(sourceX, sourceY, sourceWidth, sourceHeight),
+            GraphicsUnit.Pixel);
+
+        grPhoto.Dispose();
+
+        return bmPhoto;
+        }
+
+        
+        //////////////////////////////////////////////////////////////////////////
+        public static double CalcDistance(float[] descs_1, float[] descs_2)
+        {
+        double sum = 0.0;
+
+        if(descs_1.GetLength(0) != descs_2.GetLength(0))
+            return -10.0;
+
+        for(int i = 0; i < descs_1.GetLength(0); ++i)
+            {
+            sum += Math.Pow(descs_1[i] - descs_2[i], 2);
+            }
+
+        sum  = Math.Sqrt(sum);
+
+        return sum;
+        }
+
+
 		
-		if (data.HasRows)
-			{
-			data.Read();
+        ////////////////////////////////////////////////////////////////////////////
+        //public static ArrayList SplitSearchPhraze(ref NpgsqlConnection conn, string str)
+        //{
+        //NpgsqlCommand command = new NpgsqlCommand();
+        //command.Connection = conn;
+		
+        //command.CommandText = "SELECT to_tsvector('ru', :str);";
+		
+        //command.Parameters.Add(new NpgsqlParameter("str", DbType.String));
+		
+        //command.Prepare();
+
+        //command.Parameters[0].Value = str;
+
+        //NpgsqlDataReader data = command.ExecuteReader();
+		
+        //if (data.HasRows)
+        //    {
+        //    data.Read();
 			
-			return 	SplitTsVectorResult(data.GetString(0));
-			}
-		else
-			return new ArrayList();
-		}
+        //    return 	SplitTsVectorResult(data.GetString(0));
+        //    }
+        //else
+        //    return new ArrayList();
+        //}
 		
 
 
         
-		//////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
 		public static Byte[] GetBinaryFieldValue(ref NpgsqlDataReader data, int nFieldIndex)
 		{
@@ -273,7 +445,6 @@ namespace SarafanService
         }						
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static string JoinArray(ref string[] arr, string strSep, int nElemsToUse)
         {
@@ -295,7 +466,6 @@ namespace SarafanService
         }
 
 	    
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static string GetImageFormat(ref byte [] arrImage)
         {
@@ -318,7 +488,6 @@ namespace SarafanService
         }
 
         
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static string GetIniFilePath()
         {
@@ -330,9 +499,6 @@ namespace SarafanService
 
 
 
-
-
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static string ReadStringFromConfig(string strKey)
         {
@@ -350,7 +516,6 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static int ReadIntFromConfig(string strKey)
         {
@@ -370,7 +535,6 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static double ReadDoubleFromConfig(string strKey)
         {
@@ -391,7 +555,6 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static bool IdenticalFileExists(string strPath, int nFileSize)
         {
@@ -401,7 +564,6 @@ namespace SarafanService
         }
 
         
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static bool IsFileActual(string strPath, DateTime dt)
         {
@@ -418,7 +580,6 @@ namespace SarafanService
 
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static bool FileExists(string strPathWithoutExt, ref string strExt)
         {
@@ -462,7 +623,6 @@ namespace SarafanService
 
 
         //////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////////////////////////////////////////////
         public static bool FileExists(string strFullPath)
         {
         FileInfo fi = new FileInfo(strFullPath);
@@ -472,7 +632,6 @@ namespace SarafanService
 
 
         
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static DateTime UnixTimeStampToDateTime(long unixTimeStamp)
         {       
@@ -484,7 +643,6 @@ namespace SarafanService
         }
 
         
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static long DateTimeToUnixTimestamp(DateTime dateTime)
         {
@@ -492,7 +650,7 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
+        
         //////////////////////////////////////////////////////////////////////////
         public static string GetKeyFromAuthorizationHeader(string strHeader)
         {
@@ -519,7 +677,6 @@ namespace SarafanService
 
 			
         
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static Rectangle GetImageDimensions(ref byte[] arrImg)
         {
@@ -536,7 +693,6 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static bool ResizeImage(ref byte [] arrImgSrc, out byte [] arrImgDest, int nWidth, int nHeight)
         {
@@ -586,7 +742,6 @@ namespace SarafanService
 
 
 
-		//////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
 		public static void LogMethodCall(ref NpgsqlConnection conn, int nIdUser, string strMethodName, string strCallResult, string strParameters, string strComment, string strLocale, string strClientAppVersion, int nTimespan, string strRequestBody)
 		{
@@ -645,44 +800,54 @@ namespace SarafanService
 
         
         //////////////////////////////////////////////////////////////////////////
-        //////////////////////////////////////////////////////////////////////////
-        public static void UpdateStatData(ref NpgsqlConnection conn, int nIdUser, string strActivity, string strLocale, string strClientAppVersion, int nIdRecord, string strInputData)
+        public static void UpdateStatData(ref NpgsqlConnection conn, int nIdProduct, int nIdRetailer, string strActivity, string strLocale, string strInputData)
         {
-        string strPlatform = "";
-        string strVersion = "";
-
-        SplitClientAppVersionString(strClientAppVersion, ref strPlatform, ref strVersion);
-
-        if(strPlatform == "console")
-            return;
-
         NpgsqlCommand command = new NpgsqlCommand();
         command.Connection = conn;
 
-        command.CommandText = @"INSERT INTO db_stat_data(id_user, activity, ""timestamp"", client_platform, id_record, input_data)
-                                VALUES (:idu, :act, current_timestamp, :platf, :idr, :indata)";
+        command.CommandText = @"INSERT INTO db_stat_data(activity, id_product, id_retailer, input_data, locale) VALUES (:act, :idp, :idr, :inpd, :loc);";
 
-        command.Parameters.Add(new NpgsqlParameter("idu", DbType.Int32));
         command.Parameters.Add(new NpgsqlParameter("act", DbType.String));
-        command.Parameters.Add(new NpgsqlParameter("platf", DbType.String));
+        command.Parameters.Add(new NpgsqlParameter("idp", DbType.Int32));
         command.Parameters.Add(new NpgsqlParameter("idr", DbType.Int32));
-        command.Parameters.Add(new NpgsqlParameter("indata", DbType.String));
+        command.Parameters.Add(new NpgsqlParameter("inpd", DbType.String));
+        command.Parameters.Add(new NpgsqlParameter("loc", DbType.String));
 
         command.Prepare();
 
-        command.Parameters[0].Value = nIdUser;
-        command.Parameters[1].Value = strActivity;
-        command.Parameters[2].Value = strPlatform;
+        command.Parameters[0].Value = strActivity;
+        command.Parameters[1].Value = nIdProduct;
+        command.Parameters[2].Value = nIdRetailer;
+        command.Parameters[3].Value = strInputData;
+        command.Parameters[4].Value = strLocale;
 
-        if(nIdRecord > 0)
-            command.Parameters[3].Value = nIdRecord;
-        else
-            command.Parameters[3].Value = null;
+        command.ExecuteNonQuery();
+        }
 
-        if(strInputData != null && strInputData.Length > 0)
-            command.Parameters[4].Value = strInputData;
-        else
-            command.Parameters[4].Value = null;
+
+
+        //////////////////////////////////////////////////////////////////////////
+        public static void UpdateStatData(ref NpgsqlConnection conn, StructProducts prod, string strActivity, string strLocale, string strInputData)
+        {
+        NpgsqlCommand command = new NpgsqlCommand();
+        command.Connection = conn;
+
+        string strSQL = "INSERT INTO db_stat_data(activity, id_product, id_retailer, input_data, locale) VALUES;";
+
+        string strSQL2 = "('{0}', {1}, {2}, '{3}', '{4}'),";
+
+        foreach(StructProduct pr in prod.products)
+            {
+            strSQL += "\n";
+            strSQL += String.Format(strSQL2, "view", pr.id, pr.retailer_id, strInputData, strLocale);
+            }
+
+        strSQL = strSQL.Substring(0, strSQL.Length - 1);
+        strSQL += ";";
+
+        command.CommandText = strSQL;
+
+        command.Prepare();
 
         command.ExecuteNonQuery();
         }
@@ -690,7 +855,6 @@ namespace SarafanService
 
 
 
-		//////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
         public static bool IsServiceAvailable(ref StructResult result, string strLocale)
         {
@@ -712,42 +876,8 @@ namespace SarafanService
         }
 
 		
-        //////////////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////////////
-        //public static bool IsClientAppVersionValid(ref StructResult result, string strLocale, string strClientAppVersion)
-        //{
-        ////return true;
-
-        //string strMinVersion = ReadStringFromConfig("min_client_app_version");
-
-        //string strPlatform = "";
-        //string strVersion = "";
-
-
-        //bool bSplitRes = SplitClientAppVersionString(strClientAppVersion, ref strPlatform, ref strVersion);
-
-        //strPlatform = strPlatform.Trim();
-        //strVersion = strVersion.Trim();
-        
-        
-        //if(!bSplitRes || (strPlatform != "browser" && String.Compare(strMinVersion, strVersion) > 0))
-        //    {
-        //    result.resultCode = ResultCode.Failure_ClientAppUpdateRequired;
-
-        //    if(strLocale == "ru")
-        //        result.strErrorInfo = "Требуется обновление приложения";
-        //    else
-        //        result.strErrorInfo = "Application update required";
-
-        //    return false;
-        //    }
-
-        //return true;
-        //}
-
 
         
-        //////////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////////
         public static bool SplitClientAppVersionString(string strClientAppVersionString, ref string strPlatform, ref string strVersion)
         {
@@ -763,107 +893,19 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
-		//////////////////////////////////////////////////////////////////////////
-        public static bool AllAccountSymbolsValid(string strAccountName)
-        {
-   		string pat = @"[^1234567890abcdefghijklmnopqrstuvwxyz_]";
+        ////////////////////////////////////////////////////////////////////////////
+        //public static bool AllAccountSymbolsValid(string strAccountName)
+        //{
+        //string pat = @"[^1234567890abcdefghijklmnopqrstuvwxyz_]";
 		
-		Regex r = new Regex(pat, RegexOptions.IgnoreCase);
-		bool bRes = r.IsMatch(strAccountName);
+        //Regex r = new Regex(pat, RegexOptions.IgnoreCase);
+        //bool bRes = r.IsMatch(strAccountName);
 
-        return !bRes;
-        }
-
-
-
-        
-        ////+///////////////////////////////////////////////////////////////////////
-        //public static bool ClearCachedAvatarImages(int nIdUser)
-        //{
-        //string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
-
-        //string [] fileEntries = Directory.GetFiles(strPicturesFolder, "avatar_" + nIdUser.ToString() + "_*.*");
-
-        //foreach(string file in fileEntries)
-        //    {
-        //    File.Delete(file);
-        //    }
-
-        //fileEntries = Directory.GetFiles(strPicturesFolder, "avatar_" + nIdUser.ToString() + ".*");
-
-        //foreach(string file in fileEntries)
-        //    {
-        //    File.Delete(file);
-        //    }
-
-        //return true;
-        //}
-
-
-        ////+///////////////////////////////////////////////////////////////////////
-        //public static bool ClearCachedRecordPhotos(int nIdRecord)
-        //{
-        //string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
-
-        //string [] fileEntries = Directory.GetFiles(strPicturesFolder, "photo_" + nIdRecord.ToString() + "_*.*");
-
-        //foreach(string file in fileEntries)
-        //    {
-        //    File.Delete(file);
-        //    }
-
-        //return true;
+        //return !bRes;
         //}
 
 
 
-        ////+///////////////////////////////////////////////////////////////////////
-        //static public bool GetAvatarFromDb(ref NpgsqlConnection conn, int nIdUser, DateTime dtAvatarModificationTimestamp, string strAvatarExt, int nAvatarVersion, ref string strAvatarUrl)
-        //{
-        ////nAvatarVersion = 0;
-
-        //string strPicturesBaseUrl = ServUtility.ReadStringFromConfig("pictures_url");
-        //string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
-
-        //string strAvatarPath = strPicturesFolder + "avatar_" + nIdUser.ToString() + "_" + nAvatarVersion.ToString() + "." + strAvatarExt;
-        //strAvatarUrl = strPicturesBaseUrl + "avatar_" + nIdUser.ToString() + "_" + nAvatarVersion.ToString() + "." + strAvatarExt;
-
-        ////userInfo.strAvatarUrl = strAvatarUrl;
-
-        //if(!ServUtility.IsFileActual(strAvatarPath, dtAvatarModificationTimestamp))
-        //    {
-        //    NpgsqlCommand command2 = new NpgsqlCommand();
-        //    command2.Connection = conn;
-
-        //    command2.CommandText = "SELECT decode(avatar_enc, 'base64') FROM db_users WHERE id_user = :idu;";
-					
-        //    command2.Parameters.Add(new NpgsqlParameter("idu", DbType.Int32));
-				
-        //    command2.Prepare();
-        //    command2.Parameters[0].Value = nIdUser;
-				
-        //    NpgsqlDataReader data2 = command2.ExecuteReader();
-			
-        //    if(data2.HasRows)
-        //        {
-        //        data2.Read();
-                        
-        //        byte [] arrAvatar = ServUtility.GetBinaryFieldValue(ref data2, 0);
-
-        //        if(arrAvatar != null && arrAvatar.GetLength(0) > 0)
-        //            {
-        //            File.WriteAllBytes(strAvatarPath, arrAvatar);
-        //            }
-        //        }
-        //    }
-        
-        //return true;
-        //}
-
-
-
-        //////////////////////////////////////////////////////////////////////////
 	    //////////////////////////////////////////////////////////////////////////
         public static string GetMd5Hash(MD5 md5Hash, string input)
         {
@@ -880,36 +922,34 @@ namespace SarafanService
         }
 
 
-        //////////////////////////////////////////////////////////////////////////
-	    //////////////////////////////////////////////////////////////////////////
-        public static bool StringContainsLetters(string str)
-        {
-		string pat = @".*\w.*";
+        ////////////////////////////////////////////////////////////////////////////
+        //public static bool StringContainsLetters(string str)
+        //{
+        //string pat = @".*\w.*";
 		
-		Regex rx = new Regex(pat, RegexOptions.IgnoreCase);
+        //Regex rx = new Regex(pat, RegexOptions.IgnoreCase);
 		
-        bool bRes =  rx.IsMatch(str);
+        //bool bRes =  rx.IsMatch(str);
 
-        rx = null;
+        //rx = null;
 
-        return bRes;
-        }
+        //return bRes;
+        //}
 
 
-        //////////////////////////////////////////////////////////////////////////
-	    //////////////////////////////////////////////////////////////////////////
-        public static bool IsAccountNameReserved(string strName)
-        {
-		string pat = @"^register$|^logout$|^authvk$|^authfb$|^about$|^legal$|^list$|^nearby$|^liked$|^add$|^profile$|^interests$|^howitworks$|^business$|^topic\d+$";
+        ////////////////////////////////////////////////////////////////////////////
+        //public static bool IsAccountNameReserved(string strName)
+        //{
+        //string pat = @"^register$|^logout$|^authvk$|^authfb$|^about$|^legal$|^list$|^nearby$|^liked$|^add$|^profile$|^interests$|^howitworks$|^business$|^topic\d+$";
 		
-		Regex rx = new Regex(pat, RegexOptions.IgnoreCase);
+        //Regex rx = new Regex(pat, RegexOptions.IgnoreCase);
 		
-        bool bRes =  rx.IsMatch(strName);
+        //bool bRes =  rx.IsMatch(strName);
 
-        rx = null;
+        //rx = null;
 
-        return bRes;
-        }
+        //return bRes;
+        //}
 
 		
         
