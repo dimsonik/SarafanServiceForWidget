@@ -9,14 +9,146 @@ by editing this MSBuild file. In order to learn more about this please visit htt
     <_PublishTargetUrl>D:\My\Work\Interest\WebSite</_PublishTargetUrl>
   </PropertyGroup>
   <ItemGroup>
+    <File Include="bin/dll/x64/msvcp110.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/msvcr110.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/OpenCvSharpExtern.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_calib3d2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_contrib2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_core2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_features2d2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_ffmpeg2410_64.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_flann2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_gpu2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_highgui2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_imgproc2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_legacy2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_ml2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_nonfree2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_objdetect2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_ocl2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_photo2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_stitching2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_superres2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_video2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x64/opencv_videostab2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/msvcp110.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/msvcr110.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/OpenCvSharpExtern.dll">
+      <publishTime>02/05/2015 20:14:54</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_calib3d2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_contrib2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_core2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_features2d2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_ffmpeg2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_flann2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_gpu2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_highgui2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_imgproc2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_legacy2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_ml2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_nonfree2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_objdetect2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_ocl2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_photo2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_stitching2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_superres2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_video2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="bin/dll/x86/opencv_videostab2410.dll">
+      <publishTime>02/05/2015 20:14:54</publishTime>
+    </File>
     <File Include="bin/FavoraimPartnersREST.dll">
       <publishTime>07/23/2014 17:50:07</publishTime>
     </File>
     <File Include="bin/geocode.gapi.cdpisb.dll">
-      <publishTime>04/03/2013 01:05:35</publishTime>
+      <publishTime>04/03/2013 00:05:35</publishTime>
     </File>
     <File Include="bin/Mono.Security.dll">
-      <publishTime>02/03/2012 17:06:22</publishTime>
+      <publishTime>02/03/2012 16:06:22</publishTime>
     </File>
     <File Include="bin/MyMediaLite.dll">
       <publishTime>06/18/2013 05:03:14</publishTime>
@@ -28,16 +160,163 @@ by editing this MSBuild file. In order to learn more about this please visit htt
       <publishTime>07/21/2014 18:14:51</publishTime>
     </File>
     <File Include="bin/Npgsql.dll">
-      <publishTime>02/03/2012 17:09:36</publishTime>
+      <publishTime>02/03/2012 16:09:36</publishTime>
+    </File>
+    <File Include="bin/OpenCvSharp.Blob.dll">
+      <publishTime>02/05/2015 20:14:52</publishTime>
+    </File>
+    <File Include="bin/OpenCvSharp.CPlusPlus.dll">
+      <publishTime>02/05/2015 20:14:52</publishTime>
+    </File>
+    <File Include="bin/OpenCvSharp.dll">
+      <publishTime>02/05/2015 20:14:52</publishTime>
+    </File>
+    <File Include="bin/OpenCvSharp.Extensions.dll">
+      <publishTime>02/05/2015 20:14:52</publishTime>
+    </File>
+    <File Include="bin/OpenCvSharp.UserInterface.dll">
+      <publishTime>02/05/2015 20:14:52</publishTime>
     </File>
     <File Include="bin/SarafanService.dll">
-      <publishTime>08/04/2014 14:24:38</publishTime>
+      <publishTime>02/09/2015 16:28:52</publishTime>
+    </File>
+    <File Include="dll/x64/msvcp110.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/msvcr110.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/OpenCvSharpExtern.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_calib3d2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_contrib2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_core2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_features2d2410.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_ffmpeg2410_64.dll">
+      <publishTime>02/05/2015 20:14:56</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_flann2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_gpu2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_highgui2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_imgproc2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_legacy2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_ml2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_nonfree2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_objdetect2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_ocl2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_photo2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_stitching2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_superres2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_video2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x64/opencv_videostab2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/msvcp110.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/msvcr110.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/OpenCvSharpExtern.dll">
+      <publishTime>02/05/2015 20:14:54</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_calib3d2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_contrib2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_core2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_features2d2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_ffmpeg2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_flann2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_gpu2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_highgui2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_imgproc2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_legacy2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_ml2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_nonfree2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_objdetect2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_ocl2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_photo2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_stitching2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_superres2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_video2410.dll">
+      <publishTime>02/05/2015 20:14:55</publishTime>
+    </File>
+    <File Include="dll/x86/opencv_videostab2410.dll">
+      <publishTime>02/05/2015 20:14:54</publishTime>
     </File>
     <File Include="packages.config">
-      <publishTime>07/23/2014 13:25:05</publishTime>
+      <publishTime>02/05/2015 20:14:57</publishTime>
     </File>
     <File Include="Web.config">
-      <publishTime>04/08/2014 14:24:39</publishTime>
+      <publishTime>02/05/2015 20:15:45</publishTime>
     </File>
   </ItemGroup>
 </Project>

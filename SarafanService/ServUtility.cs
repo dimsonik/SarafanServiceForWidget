@@ -28,6 +28,8 @@ using geocode.gapi.cdpisb;
 
 using System.Linq;
 
+using OpenCvSharp;
+
 //using MyMediaLite.Data;
 //using MyMediaLite.Eval;
 //using MyMediaLite.IO;
@@ -235,6 +237,689 @@ namespace SarafanService
 
 
         /////////////////////////////////////////////////////////////
+        public static byte[] GetDoubleArrayAsByteArray(double[] values)
+        {
+        var result = new byte[values.Length * sizeof(double)];
+        Buffer.BlockCopy(values, 0, result, 0, result.Length);
+        return result;
+        }
+
+
+        /////////////////////////////////////////////////////////////
+        static double[] GetByteArrayAsDoubleArray(byte[] bytes)
+        {
+        var result = new double[bytes.Length / sizeof(double)];
+        Buffer.BlockCopy(bytes, 0, result, 0, bytes.Length);
+        return result;
+        }
+
+
+        /////////////////////////////////////////////////////////////
+        public static byte[] GetDomColorsAsByteArray(List<KeyValuePair<double, CvScalar>> dom)
+            {
+            List<double> lst_dom = new List<double>();
+
+            foreach (KeyValuePair<double, CvScalar> pair in dom)
+                {
+                lst_dom.Add(pair.Key);
+                lst_dom.Add(pair.Value.Val0);
+                lst_dom.Add(pair.Value.Val1);
+                lst_dom.Add(pair.Value.Val2);
+                lst_dom.Add(pair.Value.Val3);
+                }
+
+            double[] arr_dom = lst_dom.ToArray();
+
+            byte[] byte_dom = GetDoubleArrayAsByteArray(arr_dom);
+
+            return byte_dom;
+            }
+
+
+        /////////////////////////////////////////////////////////////
+        public static List<KeyValuePair<double, CvScalar>> GetByteArrayAsDomColors(byte[] bytes)
+            {
+            double[] dblArr = GetByteArrayAsDoubleArray(bytes);
+
+            int nRows = dblArr.Length / 5;
+
+            List<KeyValuePair<double, CvScalar>> result = new List<KeyValuePair<double, CvScalar>>();
+
+            for (int i = 0; i < nRows; ++i)
+                {
+                double dblKey = dblArr[i * 5];
+
+                double dbl1 = dblArr[i * 5 + 1];
+                double dbl2 = dblArr[i * 5 + 2];
+                double dbl3 = dblArr[i * 5 + 3];
+                double dbl4 = dblArr[i * 5 + 4];
+
+                CvScalar sc = new CvScalar(dbl1, dbl2, dbl3, dbl4);
+
+                KeyValuePair<double, CvScalar> row = new KeyValuePair<double, CvScalar>(dblKey, sc);
+
+                result.Add(row);
+                }
+
+            return result;
+            }
+        
+
+        /////////////////////////////////////////////////////////////
+        public static double rgb_euclidean(CvScalar p1, CvScalar p2)
+            {
+            double val = (double)Math.Sqrt((p1.Val0 - p2.Val0) * (p1.Val0 - p2.Val0) +
+                                            (p1.Val1 - p2.Val1) * (p1.Val1 - p2.Val1) +
+                                            (p1.Val2 - p2.Val2) * (p1.Val2 - p2.Val2) +
+                                            (p1.Val3 - p2.Val3) * (p1.Val3 - p2.Val3));
+
+            return val;
+            }
+
+
+        /////////////////////////////////////////////////////////////
+        public static CvScalar RGB2LAB(CvScalar rgb)
+            {
+            double r = (rgb.Val0 / 255), g = (rgb.Val1 / 255), b = (rgb.Val2 / 255);
+
+            if (r > 0.04045) r = Math.Pow(((r + 0.055) / 1.055), 2.4); else r = r / 12.92;
+            if (g > 0.04045) g = Math.Pow(((g + 0.055) / 1.055), 2.4); else g = g / 12.92;
+            if (b > 0.04045) b = Math.Pow(((b + 0.055) / 1.055), 2.4); else b = b / 12.92;
+
+            r = r * 100;
+            g = g * 100;
+            b = b * 100;
+
+            double x = r * 0.4124 + g * 0.3576 + b * 0.1805;
+            double y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+            double z = r * 0.0193 + g * 0.1192 + b * 0.9505;
+
+            x = x / 95.047;
+            y = y / 100.000;
+            z = z / 108.883;
+
+            if (x > 0.008856) x = Math.Pow(x, (1.0 / 3.0)); else x = (7.787 * x) + (16.0 / 116.0);
+            if (y > 0.008856) y = Math.Pow(y, (1.0 / 3.0)); else y = (7.787 * y) + (16.0 / 116.0);
+            if (z > 0.008856) z = Math.Pow(z, (1.0 / 3.0)); else z = (7.787 * z) + (16.0 / 116.0);
+
+            double cie_L = (116 * y) - 16;
+            double cie_a = 500 * (x - y);
+            double cie_b = 200 * (y - z);
+
+            CvScalar res = new CvScalar();
+            res.Val0 = cie_L; res.Val1 = cie_a; res.Val2 = cie_b;
+
+            return res;
+            }
+
+        /////////////////////////////////////////////////////////////
+        public static double colorDistance(CvScalar c1, CvScalar c2)
+            {
+            double d = 0;
+
+            d += (c1.Val0 - c2.Val0) * (c1.Val0 - c2.Val0);
+            d += (c1.Val1 - c2.Val1) * (c1.Val1 - c2.Val1);
+            d += (c1.Val2 - c2.Val2) * (c1.Val2 - c2.Val2);
+
+            return Math.Sqrt(d);
+            }
+
+
+        /////////////////////////////////////////////////////////////
+        public static uint cvRandInt(CvRNG rng)
+            {
+            ulong temp = rng.Seed;
+            temp = (ulong)(uint)temp * 4164903690U + (temp >> 32);
+            rng.Seed = temp;
+
+            return (uint)temp;
+            }
+
+        struct ColorCluster
+            {
+            public CvScalar color;
+            public CvScalar new_color;
+            public int count;
+            };
+
+        public struct CCDist
+            {
+            public int c1;
+            public int c2;
+            public double dist;
+            }
+
+        public struct StructColors
+            {
+            public List<KeyValuePair<double, CvScalar>> colors;
+            }
+
+        
+        /////////////////////////////////////////////////////////////
+        public static double calcColorDistance(List<KeyValuePair<double, CvScalar>> colors1_, List<KeyValuePair<double, CvScalar>> colors2_)
+            {
+            List<KeyValuePair<double, CvScalar>> colors1 = new List<KeyValuePair<double, CvScalar>>();
+            List<KeyValuePair<double, CvScalar>> colors2 = new List<KeyValuePair<double, CvScalar>>();
+
+            foreach (KeyValuePair<double, CvScalar> p in colors1_)
+                {
+                colors1.Add(p);
+                }
+
+            foreach (KeyValuePair<double, CvScalar> p in colors2_)
+                {
+                colors2.Add(p);
+                }
+
+            double value = 0;
+
+            List<CCDist> dists = new List<CCDist>();
+
+            for (int i = 0; i < colors1.Count; ++i)
+                {
+                for (int j = 0; j < colors2.Count; ++j)
+                    {
+                    CCDist dist = new CCDist();
+                    dist.c1 = i;
+                    dist.c2 = j;
+
+                    dist.dist = colorDistance(RGB2LAB(colors1[i].Value), RGB2LAB(colors2[j].Value));
+
+                    dists.Add(dist);
+                    }
+                }
+
+            dists.Sort(delegate(CCDist p1, CCDist p2)
+                {
+                return p1.dist.CompareTo(p2.dist);
+                }
+                );
+
+
+            int c1, c2;
+
+            for (int i = 0; i < dists.Count; ++i)
+                {
+                c1 = dists[i].c1; c2 = dists[i].c2;
+
+                if ((colors1[c1].Key > 0) && (colors2[c2].Key > 0))
+                    {
+                    if (colors1[c1].Key > colors2[c2].Key)
+                        {
+                        KeyValuePair<double, CvScalar> new_pair = new KeyValuePair<double, CvScalar>(colors1[c1].Key - colors2[c2].Key, colors1[c1].Value);
+                        colors1[c1] = new_pair;
+
+                        value += dists[i].dist * colors2[c2].Key;
+
+                        KeyValuePair<double, CvScalar> new_pair2 = new KeyValuePair<double, CvScalar>(0, colors2[c2].Value);
+                        colors2[c2] = new_pair2;
+                        }
+                    else
+                        {
+                        KeyValuePair<double, CvScalar> new_pair = new KeyValuePair<double, CvScalar>(colors2[c2].Key - colors1[c1].Key, colors2[c2].Value);
+                        colors2[c2] = new_pair;
+
+                        value += dists[i].dist * colors1[c1].Key;
+
+                        KeyValuePair<double, CvScalar> new_pair2 = new KeyValuePair<double, CvScalar>(0, colors1[c1].Value);
+                        colors1[c1] = new_pair2;
+                        }
+                    }
+                }
+
+            return value;
+            }
+
+
+        /////////////////////////////////////////////////////////////
+        public static double calcColorDistanceSimplified(List<KeyValuePair<double, CvScalar>> colors1_, List<KeyValuePair<double, CvScalar>> colors2_)
+            {
+            double value = (colors1_[0].Value.Val0 - colors2_[0].Value.Val0) * (colors1_[0].Value.Val0 - colors2_[0].Value.Val0)
+                         + (colors1_[0].Value.Val1 - colors2_[0].Value.Val1) * (colors1_[0].Value.Val1 - colors2_[0].Value.Val1)
+                         + (colors1_[0].Value.Val2 - colors2_[0].Value.Val2) * (colors1_[0].Value.Val2 - colors2_[0].Value.Val2);
+
+            value = Math.Sqrt(value);
+
+            return value;
+            }
+
+
+        
+        
+        /////////////////////////////////////////////////////////////
+        public static List<KeyValuePair<double, CvScalar>> GetDomColors(string strFilename, int nX, int nY, int nWidth, int nHeight)
+        {
+        byte[] fl = File.ReadAllBytes(strFilename);
+        MemoryStream ms = new MemoryStream(fl);
+        IplImage image = IplImage.FromStream(ms, LoadMode.Color);
+
+        Cv.SetImageROI(image, new CvRect(nX, nY, nWidth, nHeight));
+
+        IplImage tmp_ = new IplImage(Cv.GetSize(image), image.Depth, image.NChannels);
+
+        Cv.Copy(image, tmp_, null);
+        Cv.ResetImageROI(image);
+
+        image = Cv.CloneImage(tmp_);
+        Cv.ReleaseImage(tmp_);
+
+        tmp_ = new IplImage(new CvSize(228, 270), image.Depth, image.NChannels);
+
+        Cv.Resize(image, tmp_);
+        Cv.ReleaseImage(image);
+
+        image = new IplImage(new CvSize(228, 270), tmp_.Depth, tmp_.NChannels);
+
+        image = Cv.CloneImage(tmp_);
+        Cv.ReleaseImage(tmp_);
+
+
+
+        Cv.SetImageROI(image, new CvRect(image.Width / 4, image.Height / 5, image.Width / 2, image.Height * 7 / 10));
+
+        IplImage tmp = new IplImage(Cv.GetSize(image), image.Depth, image.NChannels);
+
+        Cv.Copy(image, tmp, null);
+
+        Cv.ResetImageROI(image);
+
+        image = Cv.CloneImage(tmp);
+
+        Cv.ReleaseImage(tmp);
+
+        float ratio = image.Width * 1.0f / image.Height;
+
+        IplImage src;
+
+        if (ratio > 1)
+            {
+            src = new IplImage(new CvSize(100, (int)(100 / ratio)), BitDepth.U8, 3);
+            }
+        else
+            {
+            src = new IplImage(new CvSize((int)(100 * ratio), 100), BitDepth.U8, 3);
+            }
+
+        Cv.Resize(image, src, Interpolation.Linear);
+
+        IplImage cluster_indexes = new IplImage(Cv.GetSize(src), BitDepth.U8, 1);
+
+        Cv.Zero(cluster_indexes);
+
+        int cluster_count = 10;
+
+        ColorCluster[] clusters = new ColorCluster[cluster_count];
+
+        int i = 0,k = 0, x = 0, y = 0;
+
+        CvRNG rng = Cv.RNG();
+
+        for (k = 0; k < cluster_count; k++)
+            {
+            uint n1 = cvRandInt(rng);
+            uint n2 = cvRandInt(rng);
+            uint n3 = cvRandInt(rng);
+
+            clusters[k].new_color = new CvScalar(n3 % 255, n2 % 255, n1 % 255, 0);
+            }
+
+        double min_rgb_euclidean = 0, old_rgb_euclidean = 0;
+
+        while (true)
+            {
+            for (k = 0; k < cluster_count; k++)
+                {
+                clusters[k].count = 0;
+                clusters[k].color = clusters[k].new_color;
+                clusters[k].new_color = Cv.ScalarAll(0);
+                }
+
+            for (y = 0; y < src.Height; y++)
+                {
+                for (x = 0; x < src.Width; x++)
+                    {
+                    CvColor c = src[y, x];
+
+                    byte R = c.R;
+                    byte G = c.G;
+                    byte B = c.B;
+
+                    min_rgb_euclidean = 255 * 255 * 255;
+
+                    int cluster_index = -1;
+
+                    for (k = 0; k < cluster_count; k++)
+                        {
+                        double euclid = rgb_euclidean(new CvScalar(B, G, R, 0), clusters[k].color);
+
+                        if (euclid < min_rgb_euclidean)
+                            {
+                            min_rgb_euclidean = euclid;
+                            cluster_index = k;
+                            }
+                        }
+
+                    CvColor c2 = cluster_indexes[y, x];
+
+                    cluster_indexes[y, x] = new CvColor()
+                        {
+                        B = (byte)cluster_index,
+                        G = (byte)c2.G,
+                        R = (byte)c2.R,
+                        };
+
+                    clusters[cluster_index].count++;
+                    clusters[cluster_index].new_color.Val0 += B;
+                    clusters[cluster_index].new_color.Val1 += G;
+                    clusters[cluster_index].new_color.Val2 += R;
+                    }
+                }
+
+            min_rgb_euclidean = 0;
+
+            for (k = 0; k < cluster_count; k++)
+                {
+                clusters[k].new_color.Val0 /= clusters[k].count;
+                clusters[k].new_color.Val1 /= clusters[k].count;
+                clusters[k].new_color.Val2 /= clusters[k].count;
+
+                double ecli = rgb_euclidean(clusters[k].new_color, clusters[k].color);
+
+                if (ecli > min_rgb_euclidean)
+                    min_rgb_euclidean = ecli;
+                }
+
+            if (Math.Abs(min_rgb_euclidean - old_rgb_euclidean) < 1)
+                break;
+
+            old_rgb_euclidean = min_rgb_euclidean;
+            }
+
+        List<KeyValuePair<int, uint>> colors = new List<KeyValuePair<int, uint>>();
+        colors.Capacity = cluster_count;
+
+        int colors_count = 0;
+
+        for (i = 0; i < cluster_count; i++)
+            {
+            KeyValuePair<int, uint> color = new KeyValuePair<int, uint>(i, (uint)clusters[i].count);
+
+            colors.Add(color);
+
+            if (clusters[i].count > 0)
+                colors_count++;
+            }
+
+
+        colors.Sort(delegate(KeyValuePair<int, uint> p1, KeyValuePair<int, uint> p2)
+        {
+            return p2.Value.CompareTo(p1.Value);
+        }
+            );
+
+        List<KeyValuePair<double, CvScalar>> result = new List<KeyValuePair<double, CvScalar>>();
+
+        int sum = 0;
+
+        for (int ii = 0; ii < colors.Count; ++ii)
+            {
+            sum += (int)colors[ii].Value;
+            }
+
+        for (int ii = 0; ii < colors.Count; ++ii)
+            {
+            if (colors[ii].Value > 0)
+                {
+                KeyValuePair<double, CvScalar> pair = new KeyValuePair<double, CvScalar>(colors[ii].Value * 1.0f / sum, clusters[colors[ii].Key].color);
+
+                result.Add(pair);
+                }
+            else
+                {
+                break;
+                }
+            }
+
+        Cv.ReleaseImage(image);
+        Cv.ReleaseImage(src);
+        Cv.ReleaseImage(cluster_indexes);
+        Cv.ReleaseImage(tmp);
+
+
+        return result;
+        }
+
+        /////////////////////////////////////////////////////////////
+        public static List<KeyValuePair<double, CvScalar>> ReduceDomColors(List<KeyValuePair<double, CvScalar>> lstInput)
+        {
+        List<KeyValuePair<double, CvScalar>> lstReduced = new List<KeyValuePair<double, CvScalar>>();
+
+        double dbl0 = 0.0, dbl1 = 0.0, dbl2 = 0.0, dbl3 = 0.0;
+
+        foreach(KeyValuePair<double, CvScalar> row in lstInput)
+            {
+            dbl0 += row.Key * row.Value.Val0;
+            dbl1 += row.Key * row.Value.Val1;
+            dbl2 += row.Key * row.Value.Val2;
+            dbl3 += row.Key * row.Value.Val3;
+            }
+
+        KeyValuePair<double, CvScalar> rw = new KeyValuePair<double, CvScalar>(1.0, new CvScalar(dbl0, dbl1, dbl2, dbl3));
+        
+        lstReduced.Add(rw); 
+
+        return lstReduced;
+        }
+        
+        
+        
+        /////////////////////////////////////////////////////////////
+        public static List<KeyValuePair<double, CvScalar>> GetDomColors(byte[] pic)
+            {
+            //byte[] fl = File.ReadAllBytes(strFilename);
+            MemoryStream ms = new MemoryStream(pic);
+            IplImage image = IplImage.FromStream(ms, LoadMode.Color);
+
+            //Cv.SetImageROI(image, new CvRect(nX, nY, nWidth, nHeight));
+
+            //IplImage tmp_ = new IplImage(Cv.GetSize(image), image.Depth, image.NChannels);
+
+            //Cv.Copy(image, tmp_, null);
+            //Cv.ResetImageROI(image);
+
+            //image = Cv.CloneImage(tmp_);
+            //Cv.ReleaseImage(tmp_);
+
+            IplImage tmp_ = new IplImage(new CvSize(228, 270), image.Depth, image.NChannels);
+
+            Cv.Resize(image, tmp_);
+            Cv.ReleaseImage(image);
+
+            image = new IplImage(new CvSize(228, 270), tmp_.Depth, tmp_.NChannels);
+
+            image = Cv.CloneImage(tmp_);
+            Cv.ReleaseImage(tmp_);
+
+
+
+            Cv.SetImageROI(image, new CvRect(image.Width / 4, image.Height / 5, image.Width / 2, image.Height * 7 / 10));
+
+            IplImage tmp = new IplImage(Cv.GetSize(image), image.Depth, image.NChannels);
+
+            Cv.Copy(image, tmp, null);
+
+            Cv.ResetImageROI(image);
+
+            image = Cv.CloneImage(tmp);
+
+            Cv.ReleaseImage(tmp);
+
+            float ratio = image.Width * 1.0f / image.Height;
+
+            IplImage src;
+
+            if (ratio > 1)
+                {
+                src = new IplImage(new CvSize(100, (int)(100 / ratio)), BitDepth.U8, 3);
+                }
+            else
+                {
+                src = new IplImage(new CvSize((int)(100 * ratio), 100), BitDepth.U8, 3);
+                }
+
+            Cv.Resize(image, src, Interpolation.Linear);
+
+            IplImage cluster_indexes = new IplImage(Cv.GetSize(src), BitDepth.U8, 1);
+
+            Cv.Zero(cluster_indexes);
+
+            int cluster_count = 10;
+
+            ColorCluster[] clusters = new ColorCluster[cluster_count];
+
+            int i = 0,k = 0, x = 0, y = 0;
+
+            CvRNG rng = Cv.RNG();
+
+            for (k = 0; k < cluster_count; k++)
+                {
+                uint n1 = cvRandInt(rng);
+                uint n2 = cvRandInt(rng);
+                uint n3 = cvRandInt(rng);
+
+                clusters[k].new_color = new CvScalar(n3 % 255, n2 % 255, n1 % 255, 0);
+                }
+
+            double min_rgb_euclidean = 0, old_rgb_euclidean = 0;
+
+            while (true)
+                {
+                for (k = 0; k < cluster_count; k++)
+                    {
+                    clusters[k].count = 0;
+                    clusters[k].color = clusters[k].new_color;
+                    clusters[k].new_color = Cv.ScalarAll(0);
+                    }
+
+                for (y = 0; y < src.Height; y++)
+                    {
+                    for (x = 0; x < src.Width; x++)
+                        {
+                        CvColor c = src[y, x];
+
+                        byte R = c.R;
+                        byte G = c.G;
+                        byte B = c.B;
+
+                        min_rgb_euclidean = 255 * 255 * 255;
+
+                        int cluster_index = -1;
+
+                        for (k = 0; k < cluster_count; k++)
+                            {
+                            double euclid = rgb_euclidean(new CvScalar(B, G, R, 0), clusters[k].color);
+
+                            if (euclid < min_rgb_euclidean)
+                                {
+                                min_rgb_euclidean = euclid;
+                                cluster_index = k;
+                                }
+                            }
+
+                        CvColor c2 = cluster_indexes[y, x];
+
+                        cluster_indexes[y, x] = new CvColor()
+                        {
+                            B = (byte)cluster_index,
+                            G = (byte)c2.G,
+                            R = (byte)c2.R,
+                        };
+
+                        clusters[cluster_index].count++;
+                        clusters[cluster_index].new_color.Val0 += B;
+                        clusters[cluster_index].new_color.Val1 += G;
+                        clusters[cluster_index].new_color.Val2 += R;
+                        }
+                    }
+
+                min_rgb_euclidean = 0;
+
+                for (k = 0; k < cluster_count; k++)
+                    {
+                    clusters[k].new_color.Val0 /= clusters[k].count;
+                    clusters[k].new_color.Val1 /= clusters[k].count;
+                    clusters[k].new_color.Val2 /= clusters[k].count;
+
+                    double ecli = rgb_euclidean(clusters[k].new_color, clusters[k].color);
+
+                    if (ecli > min_rgb_euclidean)
+                        min_rgb_euclidean = ecli;
+                    }
+
+                if (Math.Abs(min_rgb_euclidean - old_rgb_euclidean) < 1)
+                    break;
+
+                old_rgb_euclidean = min_rgb_euclidean;
+                }
+
+            List<KeyValuePair<int, uint>> colors = new List<KeyValuePair<int, uint>>();
+            colors.Capacity = cluster_count;
+
+            int colors_count = 0;
+
+            for (i = 0; i < cluster_count; i++)
+                {
+                KeyValuePair<int, uint> color = new KeyValuePair<int, uint>(i, (uint)clusters[i].count);
+
+                colors.Add(color);
+
+                if (clusters[i].count > 0)
+                    colors_count++;
+                }
+
+
+            colors.Sort(delegate(KeyValuePair<int, uint> p1, KeyValuePair<int, uint> p2)
+            {
+                return p2.Value.CompareTo(p1.Value);
+            }
+                );
+
+            List<KeyValuePair<double, CvScalar>> result = new List<KeyValuePair<double, CvScalar>>();
+
+            int sum = 0;
+
+            for (int ii = 0; ii < colors.Count; ++ii)
+                {
+                sum += (int)colors[ii].Value;
+                }
+
+            for (int ii = 0; ii < colors.Count; ++ii)
+                {
+                if (colors[ii].Value > 0)
+                    {
+                    KeyValuePair<double, CvScalar> pair = new KeyValuePair<double, CvScalar>(colors[ii].Value * 1.0f / sum, clusters[colors[ii].Key].color);
+
+                    result.Add(pair);
+                    }
+                else
+                    {
+                    break;
+                    }
+                }
+
+            Cv.ReleaseImage(image);
+            Cv.ReleaseImage(src);
+            Cv.ReleaseImage(cluster_indexes);
+            Cv.ReleaseImage(tmp);
+
+
+            return result;
+            }
+
+
+
+
+        /////////////////////////////////////////////////////////////
         public static StructColorImage LoadImage(Image img_orig)
             {
             Image img = ServUtility.FixedSize(img_orig, 256, 256);
@@ -270,7 +955,8 @@ namespace SarafanService
         /////////////////////////////////////////////////////////////
         public static StructBWImage LoadBWImage(Image img_orig)
             {
-            Image img = ServUtility.FixedSize(img_orig, 256, 256);
+            //Image img = ServUtility.FixedSize(img_orig, 256, 256);
+            Image img = ServUtility.FixedSize(img_orig, 228, 270);
 
             Bitmap bmp = new Bitmap(img);
 
@@ -292,7 +978,40 @@ namespace SarafanService
                 }
 
             return ci;
-            }        
+            }
+        
+        
+        /////////////////////////////////////////////////////////////
+        //public static StructBWImage load_bw_image(Image img_orig, int X, int Y, int cropWidth, int cropHeight, int resizeWidth, int resizeHeight)
+        //{
+        //Bitmap bmp_orig = new Bitmap(img_orig);
+        ////Color clr_orig = bmp_orig.GetPixel(100, 100);
+
+        //Image img = CropResize(img_orig, X, Y, cropWidth, cropHeight, resizeWidth, resizeHeight);
+
+        ////img.Save("resized_" + fname);
+
+        //Bitmap bmp = new Bitmap(img);
+
+        //StructBWImage ci = new StructBWImage();
+
+        //ci.width = img.Width;
+        //ci.height = img.Height;
+
+        //ci.c1 = new float[ci.width * ci.height];
+
+        //for (int x = 0; x < ci.width; ++x)
+        //    {
+        //    for (int y = 0; y < ci.width; ++y)
+        //        {
+        //        int n = y * ci.width + x;
+
+        //        ci.c1[n] = (bmp.GetPixel(x, y).R + bmp.GetPixel(x, y).G + bmp.GetPixel(x, y).B) / 3;
+        //        }
+        //    }
+
+        //return ci;
+        //}
         
         
         /////////////////////////////////////////////////////////////
@@ -373,6 +1092,26 @@ namespace SarafanService
             new Rectangle(destX, destY, destWidth, destHeight),
             new Rectangle(sourceX, sourceY, sourceWidth, sourceHeight),
             GraphicsUnit.Pixel);
+
+        grPhoto.Dispose();
+
+        return bmPhoto;
+        }
+
+
+        /////////////////////////////////////////////////////////////
+        static Image CropResize(Image imgPhoto, int X, int Y, int cropWidth, int cropHeight, int resizeWidth, int resizeHeight)
+        {
+        Bitmap bmPhoto = new Bitmap(resizeWidth, resizeHeight, imgPhoto.PixelFormat);
+        bmPhoto.SetResolution(imgPhoto.HorizontalResolution, imgPhoto.VerticalResolution);
+
+        Graphics grPhoto = Graphics.FromImage(bmPhoto);
+        grPhoto.InterpolationMode = InterpolationMode.HighQualityBicubic;
+
+        grPhoto.DrawImage(imgPhoto,
+                        new Rectangle(0, 0, resizeWidth, resizeHeight),
+                        new Rectangle(X, Y, cropWidth, cropHeight),
+                        GraphicsUnit.Pixel);
 
         grPhoto.Dispose();
 

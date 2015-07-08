@@ -92,6 +92,12 @@ public struct StructGetModelPictureArgs
     public string locale;
     }
 
+public struct StructFindSimiliarProductsArgs
+    {
+    public string offer_id;
+    public int id_retailer;
+    public string locale;
+    }
 
 ///////////////////////////////////////////////////////////////
 
@@ -136,12 +142,33 @@ public struct StructFindRequestId
     public int find_request_id;
     public int num_products_found;
 
-    public string dbg;
+    public string dbg1;
+    public string dbg2;
+    public string dbg3;
 
     public StructResult result;
     }
 
 
+public struct StructFindSimiliarResult
+    {
+    public List<StructSimiliarProduct> offers;
+
+    public string dbg1;
+    public string dbg2;
+    //public string dbg3;
+
+    public StructResult result;
+    }
+
+public struct StructSimiliarProduct
+    {
+    public string offer_id;
+    public string name;
+    public string image_url;
+    public string buy_url;
+    public double dom_dist;
+    }
 
 
 
@@ -167,6 +194,7 @@ public struct StructProducts
 public struct StructProduct
     {
     public int id;
+    public int id_search_result;
     public string brand_name;
     public string name;
     public string description;
@@ -178,6 +206,8 @@ public struct StructProduct
     public double price;
     public int retailer_id;
     public double distance;
+    public double distance_dom;
+    public double distance_bow;
     //public string most_relevant_picture;
     //public string picture_remote;
     public List<StructPicture> pictures;

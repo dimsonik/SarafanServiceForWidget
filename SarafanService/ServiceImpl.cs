@@ -31,6 +31,8 @@ using Nancy.TinyIoc;
 using Npgsql;
 using NpgsqlTypes;
 
+using OpenCvSharp;
+
 namespace SarafanService
     {
     public partial class ServiceModule
@@ -574,21 +576,33 @@ namespace SarafanService
                 byte[] desc2 = ServUtility.GetFloatArrayAsByteArray(fDesc2);
 
 
+                List<KeyValuePair<double, CvScalar>> dom = ServUtility.GetDomColors(btPic);
+                byte[] byte_dom = ServUtility.GetDomColorsAsByteArray(dom);
+
+
+                float[] fDescBOW = calcBOWDescriptors_(btPic, btPic.Count(), @"/var/www/main_sarafan/vocabulary.yml");
+                byte[] desc_bow = ServUtility.GetFloatArrayAsByteArray(fDescBOW);
+
+
                 NpgsqlCommand command = new NpgsqlCommand();
                 command.Connection = conn;
 
                 //command.CommandText = @"INSERT INTO db_model_pictures DEFAULT VALUES RETURNING id_model_picture;";
-                command.CommandText = @"INSERT INTO db_model_pictures(picture, descr, descr_bw) VALUES (:p, :d, :d2) RETURNING id_model_picture;";
+                command.CommandText = @"INSERT INTO db_model_pictures(picture, descr, descr_bw, dom_colors, descr_bow) VALUES (:p, :d, :d2, :dom, :dbow) RETURNING id_model_picture;";
 
                 command.Parameters.Add(new NpgsqlParameter("p", DbType.Binary));
                 command.Parameters.Add(new NpgsqlParameter("d", DbType.Binary));
                 command.Parameters.Add(new NpgsqlParameter("d2", DbType.Binary));
+                command.Parameters.Add(new NpgsqlParameter("dom", DbType.Binary));
+                command.Parameters.Add(new NpgsqlParameter("dbow", DbType.Binary));
 
                 command.Prepare();
 
                 command.Parameters[0].Value = btPic;
                 command.Parameters[1].Value = desc;
                 command.Parameters[2].Value = desc2;
+                command.Parameters[3].Value = byte_dom;
+                command.Parameters[4].Value = desc_bow;
 
                 Object obj = command.ExecuteScalar();
                 id.model_picture_id = (int)obj;
@@ -629,13 +643,27 @@ namespace SarafanService
             {
             public int id_product;
             public List<Tuple<float[], int>> descriptors;
-            public double distance;
+            public List<Tuple<List<KeyValuePair<double, CvScalar>>, int>> dom;
+            public List<Tuple<float[], int>> descriptorsBOW;
+            public double distance_gist;
+            public double distance_dom;
+            public double distance_dom_reduced;
+            public double distance_bow;
+            public int rank_gist;
+            public int rank_dom;
+            public int rank_bow;
+            public int rank_sum;
             public int id_product_photo;
+
+            public string name;
+            public string imageurl;
+            public string buyurl;
+            public string offer_id;
             }
 
 
         //+///////////////////////////////////////////////////////////////////////
-        public StructFindRequestId FindProducts(StructFindProductsArgs2 args)
+        public StructFindRequestId FindProductsOld(StructFindProductsArgs2 args)
             {
             StructFindRequestId id = new StructFindRequestId();
             id.result = new StructResult();
@@ -796,6 +824,7 @@ namespace SarafanService
 
                         StructProductData pd = new StructProductData();
                         pd.descriptors = new List<Tuple<float[], int>>();
+                        pd.dom = new List<Tuple<List<KeyValuePair<double,CvScalar>>,int>>();
                         pd.id_product = nId;
 
                         if (!lstFound.Exists(prData => prData.id_product == nId))
@@ -806,10 +835,11 @@ namespace SarafanService
                 if (lstFound.Count > 0)
                     {
                     float[] descrModel = null;
+                    List<KeyValuePair<double, CvScalar>> domModel = null;
 
                     NpgsqlCommand commandModel = new NpgsqlCommand();
                     commandModel.Connection = conn;
-                    commandModel.CommandText = "SELECT descr_bw FROM db_model_pictures WHERE id_model_picture = :idmp;";
+                    commandModel.CommandText = "SELECT descr_bw, dom_colors FROM db_model_pictures WHERE id_model_picture = :idmp;";
                     commandModel.Parameters.Add(new NpgsqlParameter("idmp", DbType.Int32));
 
                     commandModel.Prepare();
@@ -831,6 +861,16 @@ namespace SarafanService
 
                             descrModel = ServUtility.GetByteArrayAsFloatArray(d);
                             }
+
+                        if (!dataModel.IsDBNull(1))
+                            {
+                            long len = dataModel.GetBytes(1, 0, null, 0, 0);
+                            byte[] d = new Byte[len];
+
+                            dataModel.GetBytes(1, 0, d, 0, (int)len);
+
+                            domModel = ServUtility.GetByteArrayAsDomColors(d);
+                            }
                         }
 
                     if (descrModel == null || descrModel.GetLength(0) == 0)
@@ -838,7 +878,12 @@ namespace SarafanService
                         return id;
                         }
 
-                    string strSQLDesc = "SELECT id_product_picture, id_product, descr_bw FROM db_product_pictures WHERE id_product IN ({0});";
+                    if (domModel == null || domModel.Count == 0)
+                        {
+                        return id;
+                        }
+
+                    string strSQLDesc = "SELECT id_product_picture, id_product, descr_bw, dom_colors FROM db_product_pictures WHERE id_product IN ({0});";
 
                     string strIdList = lstFound[0].id_product.ToString();
 
@@ -887,6 +932,26 @@ namespace SarafanService
                                 if (nIndex >= 0)
                                     lstFound[nIndex].descriptors.Add(new Tuple<float[], int> (descr, nIdPP));
                                 }
+
+                            if (!dataSelectDesc.IsDBNull(3))
+                                {
+                                long len = dataSelectDesc.GetBytes(3, 0, null, 0, 0);
+                                byte[] d = new Byte[len];
+
+                                dataSelectDesc.GetBytes(3, 0, d, 0, (int)len);
+
+                                List<KeyValuePair<double, CvScalar>> dom = ServUtility.GetByteArrayAsDomColors(d);
+
+                                int nIndex = lstFound.FindIndex(
+                                    delegate(StructProductData pd)
+                                        {
+                                        return pd.id_product == nIdP;
+                                        }
+                                    );
+
+                                if (nIndex >= 0)
+                                    lstFound[nIndex].dom.Add(new Tuple<List<KeyValuePair<double, CvScalar>>, int>(dom, nIdPP));
+                                }
                             }
                         }
 
@@ -894,6 +959,8 @@ namespace SarafanService
                         {
                         double dst = 100.0;
                         int nIdPicBest = 0;
+
+                        double dst_dom = 10000.0;
 
                         for (int j = 0; j < lstFound[i].descriptors.Count; ++j)
                             {
@@ -904,28 +971,73 @@ namespace SarafanService
                                 dst = dist;
                                 nIdPicBest = lstFound[i].descriptors[j].Item2;
                                 }
+
+                            double dist_dom = ServUtility.calcColorDistance(lstFound[i].dom[j].Item1, domModel);
+
+                            if (dist_dom < dst_dom)
+                                {
+                                dst_dom = dist_dom;
+                                //nIdPicBest = lstFound[i].descriptors[j].Item2;
+                                }
+                            
                             }
 
-                        lstFound[i].distance = dst;
+                        lstFound[i].distance_gist = dst;
                         lstFound[i].id_product_photo = nIdPicBest;
+
+                        lstFound[i].distance_dom = dst_dom;
                         }
 
                     lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
                         {
-                        return p1.distance.CompareTo(p2.distance);
+                        return p1.distance_gist.CompareTo(p2.distance_gist);
                         }
                         );
 
+                    for(int i = 0; i < lstFound.Count; ++i)
+                        {
+                        lstFound[i].rank_gist = i;
+                        }
+
+
+
+                    lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                        {
+                        return p1.distance_dom.CompareTo(p2.distance_dom);
+                        }
+                        );
+
+                    for (int i = 0; i < lstFound.Count; ++i)
+                        {
+                        lstFound[i].rank_dom = i;
+                        }
+
+
+
+
+                    for (int i = 0; i < lstFound.Count; ++i)
+                        {
+                        lstFound[i].rank_sum = /*lstFound[i].rank_gist +*/ lstFound[i].rank_dom;
+                        }
+
+
+                    lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                        {
+                        return p1.rank_sum.CompareTo(p2.rank_sum);
+                        }
+                        );
                     }
 
 
-                id.dbg = "products found by filters = " + lstFound.Count.ToString();
+                id.dbg2 = "products found by filters = " + lstFound.Count.ToString();
 
-                if(lstFound.Count > 1000)
+                const int nProductLimit = 500;
+
+                
+                if (lstFound.Count > nProductLimit)
                     {
-                    lstFound.RemoveRange(1000, lstFound.Count - 1000);
+                    lstFound.RemoveRange(nProductLimit, lstFound.Count - nProductLimit);
                     }
-
 
 
                 id.num_products_found = lstFound.Count;
@@ -945,13 +1057,13 @@ namespace SarafanService
                     id.find_request_id = nIdRequest;
 
 
-                    string strSQLInsert = @"INSERT INTO db_search_results(id_search_request, id_product, distance, id_product_picture) VALUES ";
+                    string strSQLInsert = @"INSERT INTO db_search_results(id_search_request, id_product, distance, distance_dom, id_product_picture) VALUES ";
 
-                    strSQLInsert += "\n(" + nIdRequest.ToString() + ", " + lstFound[0].id_product.ToString() + ", " + lstFound[0].distance.ToString() + ", " + lstFound[0].id_product_photo.ToString() + ")";
+                    strSQLInsert += "\n(" + nIdRequest.ToString() + ", " + lstFound[0].id_product.ToString() + ", " + lstFound[0].distance_gist.ToString() + ", " + lstFound[0].distance_dom.ToString() + ", " + lstFound[0].id_product_photo.ToString() + ")";
 
                     for (int i = 1; i < lstFound.Count; ++i)
                         {
-                        strSQLInsert += ",\n" + "\n(" + nIdRequest.ToString() + ", " + lstFound[i].id_product.ToString() + ", " + lstFound[i].distance.ToString() + ", " + lstFound[i].id_product_photo.ToString() + ")";
+                        strSQLInsert += ",\n" + "\n(" + nIdRequest.ToString() + ", " + lstFound[i].id_product.ToString() + ", " + lstFound[i].distance_gist.ToString() + ", " + lstFound[i].distance_dom.ToString() + ", " + lstFound[i].id_product_photo.ToString() + ")";
                         }
 
                     //id.dbg += ";   " + strSQLInsert; 
@@ -989,6 +1101,630 @@ namespace SarafanService
                     }
                 }
             }
+
+
+
+
+
+
+
+        //+///////////////////////////////////////////////////////////////////////
+        public StructFindRequestId FindProductsNew(StructFindProductsArgs2 args)
+            {
+            StructFindRequestId id = new StructFindRequestId();
+            id.result = new StructResult();
+            id.find_request_id = -1;
+            id.num_products_found = 0;
+
+            Stopwatch sw1 = new Stopwatch();
+            Stopwatch sw2 = new Stopwatch();
+            Stopwatch sw3 = new Stopwatch();
+            Stopwatch sw4 = new Stopwatch();
+
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            sw1.Start();
+
+
+
+            if (args.locale == null || args.locale.Length == 0)
+                args.locale = "en";
+
+            if (!ServUtility.IsServiceAvailable(ref id.result, args.locale))
+                {
+                return id;
+                }
+
+
+            //int nIdUser = -1;
+            NpgsqlConnection conn = null;
+
+
+            try
+                {
+                if (!Connect(out conn, ref id.result))
+                    {
+                    return id;
+                    }
+
+                ServUtility.DeleteOutdatedSearchRequests(ref conn);
+                ServUtility.DeleteOutdatedModelPictures(ref conn);
+
+                if (!ServUtility.IsModelPictureValid(ref conn, args.picture_id))
+                    {
+                    id.result.result_code = ResultCode.Failure_SessionExpired;
+                    id.result.message = "Session expired";
+
+                    return id;
+                    }
+
+                Dictionary<int, List<int>> dictFilterItems = new Dictionary<int, List<int>>();
+
+                foreach (StructFilterItemPair2 pair in args.filter_item_list)
+                    {
+                    if (dictFilterItems.ContainsKey(pair.id_filter))
+                        {
+                        dictFilterItems[pair.id_filter].Add(pair.id_item);
+                        }
+                    else
+                        {
+                        dictFilterItems.Add(pair.id_filter, new List<int> { pair.id_item });
+                        }
+                    }
+
+
+                NpgsqlCommand command = new NpgsqlCommand();
+                command.Connection = conn;
+
+                string strSQL = "";
+
+                if (dictFilterItems.Count > 0)
+                    {
+                    strSQL = @"SELECT id_product FROM db_products WHERE id_product IN(
+                            SELECT inn.id_product FROM 
+                                    (
+                                    ";
+
+                    string strSQL2 = @"
+                                SELECT DISTINCT id_product FROM dbl_product_filter_items
+                                WHERE id_filter_item IN 
+                                (SELECT id_filter_item FROM db_filter_items WHERE 
+                                (id_filter = (SELECT id_filter FROM db_filters WHERE id_filter = {0}) AND ({1})))";
+
+                    string strSQL3 = @"id_filter_item = {0}";
+
+                    string strSQL4 = @") AS inn)
+                                ";
+
+                    foreach (var filter in dictFilterItems)
+                        {
+                        string strTmp = "";
+
+                        foreach (int item in filter.Value)
+                            {
+                            strTmp += String.Format(strSQL3, item) + " OR ";
+                            }
+
+                        strTmp = strTmp.Substring(0, strTmp.Length - 4);
+
+                        strTmp = String.Format(strSQL2, filter.Key, strTmp);
+
+                        strSQL += "\n" + strTmp + "\n INTERSECT" + "\n";
+                        }
+
+                    strSQL = strSQL.Substring(0, strSQL.Length - 10) + strSQL4;
+
+                    if (args.retailer_id_list != null && args.retailer_id_list.Count > 0)
+                        {
+                        string strSQL6 = @" AND id_retailer IN ({0})
+                                    ORDER BY id_product
+                                    LIMIT 500000";
+
+                        string strSQL7 = "";
+
+                        strSQL7 = args.retailer_id_list[0].ToString();
+
+                        for (int i = 1; i < args.retailer_id_list.Count; ++i)
+                            {
+                            strSQL7 += ", " + args.retailer_id_list[i].ToString();
+                            }
+
+                        strSQL6 = String.Format(strSQL6, strSQL7);
+
+                        strSQL += "\n" + strSQL6 + "\n";
+                        }
+                    }
+                else
+                    {
+                    if (args.retailer_id_list != null && args.retailer_id_list.Count > 0)
+                        {
+                        strSQL = @"SELECT id_product FROM db_products WHERE id_retailer IN ({0}) ORDER BY id_product LIMIT 500000;";
+
+                        if (args.retailer_id_list != null && args.retailer_id_list.Count > 0)
+                            {
+                            string strList = args.retailer_id_list[0].ToString();
+
+                            for (int i = 1; i < args.retailer_id_list.Count; ++i)
+                                {
+                                strList += ", " + args.retailer_id_list[i].ToString();
+                                }
+
+                            strSQL = String.Format(strSQL, strList);
+                            }
+                        }
+                    else
+                        {
+                        strSQL = @"SELECT id_product FROM db_products ORDER BY id_product LIMIT 500000;";
+                        }
+                    }
+
+
+                id.dbg1 = strSQL;
+
+                command.CommandText = strSQL;
+
+                command.Prepare();
+
+                NpgsqlDataReader data = command.ExecuteReader();
+
+                List<StructProductData> lstFound = new List<StructProductData>();
+                Dictionary<int, StructProductData> dictFound = new Dictionary<int, StructProductData>();
+
+                if (data.HasRows)
+                    {
+                    while (data.Read())
+                        {
+                        int nId = data.GetInt32(0);
+
+                        StructProductData pd = new StructProductData();
+                        pd.descriptors = new List<Tuple<float[], int>>();
+                        pd.dom = new List<Tuple<List<KeyValuePair<double, CvScalar>>, int>>();
+                        pd.descriptorsBOW = new List<Tuple<float[], int>>();
+                        pd.id_product = nId;
+
+                        if (!dictFound.ContainsKey(nId))
+                            {
+                            dictFound.Add(nId, pd);
+                            }
+
+                        //if (!lstFound.Exists(prData => prData.id_product == nId))
+                        //    {
+                        //    lstFound.Add(pd);
+                        //    }
+                        }
+                    }
+
+                sw1.Stop();
+
+                //if (lstFound.Count > 0)
+                if(dictFound.Count > 0)
+                    {
+                    float[] descrModel = null;
+                    List<KeyValuePair<double, CvScalar>> domModel = null;
+                    List<KeyValuePair<double, CvScalar>> domModelReduced = null;
+                    float[] descrBOWModel = null;
+
+                    NpgsqlCommand commandModel = new NpgsqlCommand();
+                    commandModel.Connection = conn;
+                    commandModel.CommandText = "SELECT descr_bw, dom_colors, descr_bow FROM db_model_pictures WHERE id_model_picture = :idmp;";
+                    commandModel.Parameters.Add(new NpgsqlParameter("idmp", DbType.Int32));
+
+                    commandModel.Prepare();
+
+                    commandModel.Parameters[0].Value = args.picture_id;
+
+                    NpgsqlDataReader dataModel = commandModel.ExecuteReader();
+
+                    if (dataModel.HasRows)
+                        {
+                        dataModel.Read();
+
+                        if (!dataModel.IsDBNull(0))
+                            {
+                            long len = dataModel.GetBytes(0, 0, null, 0, 0);
+                            byte[] d = new Byte[len];
+
+                            dataModel.GetBytes(0, 0, d, 0, (int)len);
+
+                            descrModel = ServUtility.GetByteArrayAsFloatArray(d);
+                            }
+
+                        if (!dataModel.IsDBNull(1))
+                            {
+                            long len = dataModel.GetBytes(1, 0, null, 0, 0);
+                            byte[] d = new Byte[len];
+
+                            dataModel.GetBytes(1, 0, d, 0, (int)len);
+
+                            domModel = ServUtility.GetByteArrayAsDomColors(d);
+
+                            domModelReduced = ServUtility.ReduceDomColors(domModel);
+                            }
+                        
+                        if (!dataModel.IsDBNull(2))
+                            {
+                            long len = dataModel.GetBytes(2, 0, null, 0, 0);
+                            byte[] d = new Byte[len];
+
+                            dataModel.GetBytes(2, 0, d, 0, (int)len);
+
+                            descrBOWModel = ServUtility.GetByteArrayAsFloatArray(d);
+                            }
+                        }
+
+                    //if (descrModel == null || descrModel.GetLength(0) == 0)
+                    //    {
+                    //    return id;
+                    //    }
+
+                    if (domModel == null || domModel.Count == 0)
+                        {
+                        return id;
+                        }
+
+                    //if (descrBOWModel == null || descrBOWModel.GetLength(0) == 0)
+                    //    {
+                    //    return id;
+                    //    }
+
+                    sw2.Start();
+
+                    //string strSQLDesc = "SELECT id_product_picture, id_product, descr_bw, dom_colors, descr_bow FROM db_product_pictures WHERE id_product IN ({0});";
+                    string strSQLDesc = "SELECT id_product_picture, id_product, dom_colors FROM db_product_pictures WHERE id_product IN ({0});";
+
+                    StringBuilder bld = new StringBuilder();
+
+                    //bld.Append(lstFound[0].id_product.ToString());
+                    //string strIdList = lstFound[0].id_product.ToString();
+
+                    //for (int j = 1; j < lstFound.Count; ++j)
+                    //    {
+                    //    bld.Append("," + lstFound[j].id_product.ToString());
+                    //    //strIdList += "," + lstFound[j].id_product.ToString();
+                    //    }
+
+                    //bld.Append(lstFound[0].id_product.ToString());
+
+                    int nCnt = 0;
+
+                    foreach(StructProductData dt in dictFound.Values)
+                        {
+                        if(nCnt == 0)
+                            bld.Append(dt.id_product.ToString());
+                        else
+                            bld.Append("," + dt.id_product.ToString());
+
+                        nCnt++;
+                        }
+
+                    string strIdList = bld.ToString();
+
+                    strSQLDesc = String.Format(strSQLDesc, strIdList);
+
+                    id.dbg1 += ";   " + strSQLDesc;
+
+                    NpgsqlCommand commandSelectDesc = new NpgsqlCommand();
+                    commandSelectDesc.Connection = conn;
+
+                    commandSelectDesc.CommandText = strSQLDesc;
+
+                    commandSelectDesc.Prepare();
+
+
+                    NpgsqlDataReader dataSelectDesc = commandSelectDesc.ExecuteReader();
+
+                    if (dataSelectDesc.HasRows)
+                        {
+                        while (dataSelectDesc.Read())
+                            {
+                            int nIdPP = dataSelectDesc.GetInt32(0);
+                            int nIdP = dataSelectDesc.GetInt32(1);
+
+                            //if (!dataSelectDesc.IsDBNull(2))
+                            //    {
+                            //    long len = dataSelectDesc.GetBytes(2, 0, null, 0, 0);
+                            //    byte[] d = new Byte[len];
+
+                            //    dataSelectDesc.GetBytes(2, 0, d, 0, (int)len);
+
+                            //    float[] descr = ServUtility.GetByteArrayAsFloatArray(d);
+
+                            //    int nIndex = lstFound.FindIndex(
+                            //        delegate(StructProductData pd)
+                            //            {
+                            //            return pd.id_product == nIdP;
+                            //            }
+                            //        );
+
+                            //    if (nIndex >= 0)
+                            //        lstFound[nIndex].descriptors.Add(new Tuple<float[], int>(descr, nIdPP));
+                            //    }
+
+                            if (!dataSelectDesc.IsDBNull(2))
+                                {
+                                long len = dataSelectDesc.GetBytes(2, 0, null, 0, 0);
+                                byte[] d = new Byte[len];
+
+                                dataSelectDesc.GetBytes(2, 0, d, 0, (int)len);
+
+                                List<KeyValuePair<double, CvScalar>> dom = ServUtility.GetByteArrayAsDomColors(d);
+
+                                dictFound[nIdP].dom.Add(new Tuple<List<KeyValuePair<double, CvScalar>>, int>(dom, nIdPP));
+
+                                //int nIndex = lstFound.FindIndex(
+                                //    delegate(StructProductData pd)
+                                //        {
+                                //        return pd.id_product == nIdP;
+                                //        }
+                                //    );
+
+                                //if (nIndex >= 0)
+                                //    lstFound[nIndex].dom.Add(new Tuple<List<KeyValuePair<double, CvScalar>>, int>(dom, nIdPP));
+                                }
+                            
+                            //if (!dataSelectDesc.IsDBNull(4))
+                            //    {
+                            //    long len = dataSelectDesc.GetBytes(4, 0, null, 0, 0);
+                            //    byte[] d = new Byte[len];
+
+                            //    dataSelectDesc.GetBytes(4, 0, d, 0, (int)len);
+
+                            //    float[] descr = ServUtility.GetByteArrayAsFloatArray(d);
+
+                            //    int nIndex = lstFound.FindIndex(
+                            //        delegate(StructProductData pd)
+                            //            {
+                            //            return pd.id_product == nIdP;
+                            //            }
+                            //        );
+
+                            //    if (nIndex >= 0)
+                            //        lstFound[nIndex].descriptorsBOW.Add(new Tuple<float[], int>(descr, nIdPP));
+                            //    }
+                            }
+                        }
+
+                    lstFound.Clear();
+
+                    foreach(StructProductData st in dictFound.Values)
+                        {
+                        lstFound.Add(st);
+                        }
+
+                    //id.dbg3 = lstFound[0].dom[0].Item1..ToString() + "; " + lstFound[0].dom[0].Item2.
+
+                    sw2.Stop();
+                    sw3.Start();
+
+                    for (int i = 0; i < lstFound.Count; ++i)
+                        {
+                        double dst = 100.0;
+                        double dst_dom = 10000.0;
+                        double dst_bow = 10000.0;
+                        int nIdPicBest = 0;
+
+
+                        for (int j = 0; j < lstFound[i].dom.Count; ++j)
+                            {
+                            //double dist = ServUtility.CalcDistance(lstFound[i].descriptors[j].Item1, descrModel);
+
+                            //if (dist < dst)
+                            //    {
+                            //    dst = dist;
+                            //    nIdPicBest = lstFound[i].descriptors[j].Item2;
+                            //    }
+
+                            List<KeyValuePair<double, CvScalar>> domReduced = ServUtility.ReduceDomColors(lstFound[i].dom[j].Item1);
+
+                            double dist_dom_reduced = 1000.0;
+
+
+                            //{
+                            //KeyValuePair<double, CvScalar> domReducedLab = new KeyValuePair<double, CvScalar>(1.0, ServUtility.RGB2LAB(domReduced[0].Value));
+                            //KeyValuePair<double, CvScalar> domModelReducedLab = new KeyValuePair<double, CvScalar>(1.0, ServUtility.RGB2LAB(domModelReduced[0].Value));
+
+                            //List<KeyValuePair<double, CvScalar>> lstReducedLab = new List<KeyValuePair<double, CvScalar>>();
+                            //lstReducedLab.Add(domReducedLab);
+
+                            //List<KeyValuePair<double, CvScalar>> lstModelReducedLab = new List<KeyValuePair<double, CvScalar>>();
+                            //lstModelReducedLab.Add(domModelReducedLab);
+
+                            //dist_dom_reduced = ServUtility.calcColorDistanceSimplified(lstReducedLab, lstModelReducedLab);
+                            //}
+
+                            dist_dom_reduced = ServUtility.calcColorDistance(domReduced, domModelReduced);
+
+
+
+                            //if(j == 0)
+                            //    {
+                            //    double dist_dom_reduced2 = ServUtility.calcColorDistanceSimplified(domReduced, domModelReduced);
+
+                            //    id.dbg2 = "var1 = " + dist_dom_reduced.ToString() + "; var2= " + dist_dom_reduced2.ToString() + "; var1_lab = " + dist_dom_reduced_lab.ToString() + "; ";
+                            //    }
+
+                            //d=sqrt((r2-r1)^2+(g2-g1)^2+(b2-b1)^2)
+
+                            if (dist_dom_reduced > 15.0)
+                                continue;
+
+                            double dist_dom = ServUtility.calcColorDistance(lstFound[i].dom[j].Item1, domModel);
+
+                            if (dist_dom < dst_dom)
+                                {
+                                dst_dom = dist_dom;
+                                nIdPicBest = lstFound[i].dom[j].Item2;
+                                }
+
+
+
+                            //double dist_bow = ServUtility.CalcDistance(lstFound[i].descriptorsBOW[j].Item1, descrBOWModel);
+
+                            //if (dist_bow < dst_bow)
+                            //    {
+                            //    dst_bow = dist_bow;
+                            //    //nIdPicBest = lstFound[i].descriptors[j].Item2;
+                            //    }
+                            }
+
+                        lstFound[i].distance_gist = dst;
+                        lstFound[i].id_product_photo = nIdPicBest;
+
+                        lstFound[i].distance_dom = dst_dom;
+                        lstFound[i].distance_bow = dst_bow;
+                        }
+
+                    //lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                    //{
+                    //    return p1.distance_gist.CompareTo(p2.distance_gist);
+                    //}
+                    //    );
+
+                    //for (int i = 0; i < lstFound.Count; ++i)
+                    //    {
+                    //    lstFound[i].rank_gist = i;
+                    //    }
+
+
+
+                    lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                    {
+                        return p1.distance_dom.CompareTo(p2.distance_dom);
+                    }
+                        );
+
+                    for (int i = 0; i < lstFound.Count; ++i)
+                        {
+                        lstFound[i].rank_dom = i;
+                        }
+
+
+                    //lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                    //{
+                    //    return p1.distance_bow.CompareTo(p2.distance_bow);
+                    //}
+                    //    );
+
+                    //for (int i = 0; i < lstFound.Count; ++i)
+                    //    {
+                    //    lstFound[i].rank_bow = i;
+                    //    }
+
+
+
+
+                    for (int i = 0; i < lstFound.Count; ++i)
+                        {
+                        //lstFound[i].rank_sum = /*lstFound[i].rank_gist + lstFound[i].rank_dom +*/ lstFound[i].rank_bow;
+                        lstFound[i].rank_sum = lstFound[i].rank_dom;
+                        }
+
+
+                    lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                    {
+                        return p1.rank_sum.CompareTo(p2.rank_sum);
+                    }
+                        );
+                    }
+
+
+                id.dbg2 += "products found by filters = " + lstFound.Count.ToString();
+
+                const int nProductLimit = 200;
+
+                if (lstFound.Count > nProductLimit)
+                    {
+                    lstFound.RemoveRange(nProductLimit, lstFound.Count - nProductLimit);
+                    }
+
+                lstFound.RemoveAll(delegate(StructProductData p)
+                    {
+                    return p.distance_dom >= 15;
+                    }
+                    );
+
+                //string strOrder = "";
+
+                //foreach (StructProductData pr in lstFound)
+                //    {
+                //    strOrder += "id_product = " + pr.id_product.ToString() + "; " + "rank = " + pr.rank_sum.ToString() + "; " + "rank_gist = " + pr.rank_gist.ToString() + "; " + "rank_dom = " + pr.rank_dom.ToString() + "; " + "dist_gist = " + pr.distance_gist.ToString() + "; " + "dist_dom = " + pr.distance_dom.ToString() + "; " + "dist_bow = " + pr.distance_bow.ToString()  + " ### ";
+                //    }
+
+                //id.dbg += "; " + strOrder;
+
+                sw3.Stop();
+                sw4.Start();
+
+                id.num_products_found = lstFound.Count;
+
+                if (lstFound.Count > 0)
+                    {
+                    NpgsqlCommand commandInsert1 = new NpgsqlCommand();
+                    commandInsert1.Connection = conn;
+
+                    commandInsert1.CommandText = @"INSERT INTO db_search_requests DEFAULT VALUES RETURNING id_search_request;";
+
+                    commandInsert1.Prepare();
+
+                    Object obj = commandInsert1.ExecuteScalar();
+
+                    int nIdRequest = (int)obj;
+                    id.find_request_id = nIdRequest;
+
+                    StringBuilder bld2 = new StringBuilder();
+
+                    bld2.Append(@"INSERT INTO db_search_results(id_search_request, id_product, distance, distance_dom, distance_bow, id_product_picture) VALUES ");
+
+                    bld2.Append("\n(" + nIdRequest.ToString() + ", " + lstFound[0].id_product.ToString() + ", " + lstFound[0].distance_gist.ToString() + ", " + lstFound[0].distance_dom.ToString() + ", " + lstFound[0].distance_bow.ToString() + ", " + lstFound[0].id_product_photo.ToString() + ")");
+
+                    for (int i = 1; i < lstFound.Count; ++i)
+                        {
+                        bld2.Append(",\n" + "\n(" + nIdRequest.ToString() + ", " + lstFound[i].id_product.ToString() + ", " + lstFound[i].distance_gist.ToString() + ", " + lstFound[i].distance_dom.ToString() + ", " + lstFound[i].distance_bow.ToString() + ", " + lstFound[i].id_product_photo.ToString() + ")");
+                        }
+
+                    //id.dbg += ";   " + strSQLInsert; 
+
+                    commandInsert1.CommandText = bld2.ToString();
+
+                    commandInsert1.Prepare();
+
+                    commandInsert1.ExecuteNonQuery();
+                    }
+
+                sw4.Stop();
+
+                id.dbg3 = sw1.ElapsedMilliseconds.ToString() + "; " + sw2.ElapsedMilliseconds.ToString() + "; " + sw3.ElapsedMilliseconds.ToString() + "; " + sw4.ElapsedMilliseconds.ToString();
+
+                return id;
+                }
+            catch (Exception e)
+                {
+                id.result.message = e.Message;
+                id.result.result_code = ResultCode.Failure_InternalServiceError;
+
+                return id;
+                }
+            finally
+                {
+                sw.Stop();
+
+                if (conn != null)
+                    {
+                    string strBody = ServUtility.GetRequestBody();
+
+                    ServUtility.LogMethodCall(ref conn, -1, MethodBase.GetCurrentMethod().Name, id.result.ToString(), null, id.dbg2, args.locale, "", (int)sw.ElapsedMilliseconds, strBody);
+
+                    //if (events.result.result_code == ResultCode.Success)
+                    //    ServUtility.UpdateStatData(ref conn, -2, "consume", strLocale, "", id_, null);
+
+                    conn.Close();
+                    }
+                }
+            }
+
+
+
 
 
 
@@ -1047,15 +1783,15 @@ namespace SarafanService
                 NpgsqlCommand command = new NpgsqlCommand();
                 command.Connection = conn;
 
-                command.CommandText = @"SELECT idp, first(inn.nm), first(price), first(bu), first(descr), first(idr), first(cur), COUNT(ipp), string_agg(CAST (ipp AS text), '#'), string_agg(CAST (width AS text), '#'), string_agg(CAST (height AS text), '#'), string_agg(ff, '#'), first(dist) dist, first(idpp) idpp 
-                                        FROM (SELECT p.id_product idp, p.name nm, p.retailprice * 100 price, p.buyurl bu, p.imageurl iu, p.id_retailer idr, pp.id_product_picture ipp, pp.width width, pp.height height, pp.file_format ff, p.currency cur, p.description descr, sr.distance dist, sr.id_product_picture idpp
+                command.CommandText = @"SELECT idp, first(inn.nm), first(price), first(bu), first(descr), first(idr), first(cur), COUNT(ipp), string_agg(CAST (ipp AS text), '#'), string_agg(CAST (width AS text), '#'), string_agg(CAST (height AS text), '#'), string_agg(ff, '#'), first(dist) dist, first(dist_dom) dist_dom, first(dist_bow) dist_bow, first(idpp) idpp, first(isr) isr 
+                                        FROM (SELECT p.id_product idp, p.name nm, p.retailprice * 100 price, p.buyurl bu, p.imageurl iu, p.id_retailer idr, pp.id_product_picture ipp, pp.width width, pp.height height, pp.file_format ff, p.currency cur, p.description descr, sr.distance dist, sr.distance_dom dist_dom, sr.distance_bow dist_bow, sr.id_product_picture idpp, sr.id_search_result isr
                                         FROM db_search_results sr
                                         INNER JOIN db_products p ON sr.id_search_request = :isr AND p.id_product = sr.id_product 
                                         LEFT JOIN db_product_pictures pp ON pp.id_product = p.id_product
                                         ORDER BY sr.id_search_result
                                         ) AS inn
                                         GROUP BY inn.idp
-                                        ORDER BY dist
+                                        ORDER BY isr
                                         LIMIT :lmt
                                         OFFSET :off;";
 
@@ -1116,9 +1852,17 @@ namespace SarafanService
                             product.distance = data.GetDouble(12);
 
                         if (!data.IsDBNull(13))
+                            product.distance_dom = data.GetDouble(13);
+
+                        if (!data.IsDBNull(14))
+                            product.distance_bow = data.GetDouble(14);
+
+                        if (!data.IsDBNull(15))
                             {
-                            nMostRelevantPictureId = data.GetInt32(13);
+                            nMostRelevantPictureId = data.GetInt32(15);
                             }
+
+                        product.id_search_result = data.GetInt32(16);
 
                         if (!(nNumPictures == arrIdPicture.GetLength(0) && nNumPictures == arrWidth.GetLength(0) && nNumPictures == arrHeight.GetLength(0) && nNumPictures == arrFFormat.GetLength(0)))
                             continue;
@@ -1170,15 +1914,28 @@ namespace SarafanService
                                     }
                                 }
 
-                            if(nIdPicture == nMostRelevantPictureId)
-                                {
-                                product.picture = picture.url;
-                                product.picture_width = picture.width;
-                                product.picture_height = picture.height;
-                                //product.most_relevant_picture = picture.url;
-                                }
+                            //if(nIdPicture == nMostRelevantPictureId)
+                            //    {
+                            //    product.picture = picture.url;
+                            //    product.picture_width = picture.width;
+                            //    product.picture_height = picture.height;
+                            //    //product.most_relevant_picture = picture.url;
+                            //    }
 
                             product.pictures.Add(picture);
+                            }
+
+                        product.pictures.Sort(delegate(StructPicture p1, StructPicture p2)
+                        {
+                            return p1.id.CompareTo(p2.id);
+                        }
+                            );
+
+                        if (product.pictures.Count > 0)
+                            {
+                            product.picture = product.pictures[0].url;
+                            product.picture_width = product.pictures[0].width;
+                            product.picture_height = product.pictures[0].height;
                             }
 
                         //if (product.pictures != null && product.pictures.Count > 0)
@@ -1191,7 +1948,7 @@ namespace SarafanService
 
                 products.products.Sort(delegate(StructProduct p1, StructProduct p2)
                     {
-                    return p1.distance.CompareTo(p2.distance);
+                    return p1.id_search_result.CompareTo(p2.id_search_result);
                     }
                     );
 
@@ -1333,6 +2090,361 @@ namespace SarafanService
             }
 
 
+        //+///////////////////////////////////////////////////////////////////////
+        public StructResult TestOpenCV()
+            {
+            StructResult res = new StructResult();
+
+            NpgsqlConnection conn = null;
+
+            try
+                {
+                if (!Connect(out conn, ref res))
+                    {
+                    return res;
+                    }
+
+                //IntPtr zero = IntPtr.Zero;
+                //cvReleaseImage(ref zero);
+
+
+                string strPicturesBaseUrl = ServUtility.ReadStringFromConfig("pictures_url");
+                string strPicturesFolder = ServUtility.ReadStringFromConfig("pictures_folder");
+
+                NpgsqlCommand command2 = new NpgsqlCommand();
+                command2.Connection = conn;
+                command2.CommandText = "SELECT picture FROM db_product_pictures LIMIT 1;";
+                command2.Prepare();
+
+                NpgsqlDataReader data2 = command2.ExecuteReader();
+
+                if (data2.HasRows)
+                    {
+                    data2.Read();
+
+                    byte[] pic = ServUtility.GetBinaryFieldValue(ref data2, 0);
+
+                    //List<KeyValuePair<double, CvScalar>> dom1 = ServUtility.GetDomColors(pic);
+                    //double dblDist = ServUtility.calcColorDistance(dom1, dom1);
+
+                    //res.message = dom1[0].Key.ToString() + "; " + dblDist.ToString();
+
+                    float[] fDescBOW = calcBOWDescriptors_(pic, pic.Count(), @"/var/www/main_sarafan/vocabulary.yml");
+                    byte[] desc_bow = ServUtility.GetFloatArrayAsByteArray(fDescBOW);
+
+                    res.message = desc_bow.Count().ToString();
+                    }
+                
+                return res;
+                }
+            catch (Exception e)
+                {
+                res.message = e.Message + "; " + e.InnerException.Message;
+                res.result_code = ResultCode.Failure_InternalServiceError;
+
+                return res;
+                }
+            finally
+                {
+                conn.Close();
+                }
+            }
+
+        
+        
+        //+///////////////////////////////////////////////////////////////////////
+        public StructFindSimiliarResult FindSimiliarProducts(StructFindSimiliarProductsArgs args)
+            {
+            StructFindSimiliarResult id = new StructFindSimiliarResult();
+            id.result = new StructResult();
+            id.offers = new List<StructSimiliarProduct>();
+
+            Stopwatch sw1 = new Stopwatch();
+            Stopwatch sw2 = new Stopwatch();
+            Stopwatch sw3 = new Stopwatch();
+            Stopwatch sw4 = new Stopwatch();
+
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
+            sw1.Start();
+
+
+
+            if (args.locale == null || args.locale.Length == 0)
+                args.locale = "en";
+
+            if (!ServUtility.IsServiceAvailable(ref id.result, args.locale))
+                {
+                return id;
+                }
+
+
+            //int nIdUser = -1;
+            NpgsqlConnection conn = null;
+
+
+            try
+                {
+                if (!Connect(out conn, ref id.result))
+                    {
+                    return id;
+                    }
+
+                NpgsqlCommand commandModel = new NpgsqlCommand();
+                commandModel.Connection = conn;
+                commandModel.CommandText = @"SELECT dbp.retailer_category, dbpp.dom_colors
+                                            FROM db_products dbp, db_product_pictures dbpp
+                                            WHERE dbp.id_product = dbpp.id_product AND dbp.product_code = :pc AND dbp.id_retailer = :idr;";
+                commandModel.Parameters.Add(new NpgsqlParameter("pc", DbType.String));
+                commandModel.Parameters.Add(new NpgsqlParameter("idr", DbType.Int32));
+                commandModel.Prepare();
+
+                commandModel.Parameters[0].Value = args.offer_id;
+                commandModel.Parameters[1].Value = args.id_retailer;
+
+                NpgsqlDataReader dataModel = commandModel.ExecuteReader();
+
+                if (dataModel.HasRows)
+                    {
+                    dataModel.Read();
+
+                    int nRetailCategory = dataModel.GetInt32(0);
+
+                    List<KeyValuePair<double, CvScalar>> domModel = null;
+                    List<KeyValuePair<double, CvScalar>> domModelReduced = null;
+
+                    long len = dataModel.GetBytes(1, 0, null, 0, 0);
+                    byte[] d = new Byte[len];
+
+                    dataModel.GetBytes(1, 0, d, 0, (int)len);
+
+                    domModel = ServUtility.GetByteArrayAsDomColors(d);
+
+                    domModelReduced = ServUtility.ReduceDomColors(domModel);
+
+                    NpgsqlCommand commandProducts = new NpgsqlCommand();
+                    commandProducts.Connection = conn;
+                    commandProducts.CommandText = "SELECT id_product, name, imageurl, buyurl, product_code FROM db_products WHERE id_retailer = :idr AND retailer_category = :rt ORDER BY id_product LIMIT 500000;";
+                    commandProducts.Parameters.Add(new NpgsqlParameter("idr", DbType.Int32));
+                    commandProducts.Parameters.Add(new NpgsqlParameter("rt", DbType.Int32));
+
+                    commandProducts.Prepare();
+
+                    commandProducts.Parameters[0].Value = 8;
+                    commandProducts.Parameters[1].Value = nRetailCategory;
+
+                    NpgsqlDataReader dataProducts = commandProducts.ExecuteReader();
+
+                    List<StructProductData> lstFound = new List<StructProductData>();
+                    Dictionary<int, StructProductData> dictFound = new Dictionary<int, StructProductData>();
+
+                    if (dataProducts.HasRows)
+                        {
+                        while (dataProducts.Read())
+                            {
+                            int nId = dataProducts.GetInt32(0);
+
+                            string strName = dataProducts.GetString(1);
+                            string strImageurl = dataProducts.GetString(2);
+                            string strBuyurl = dataProducts.GetString(3);
+                            string strProductCode = dataProducts.GetString(4);
+
+                            if(strProductCode == args.offer_id)
+                                continue;
+
+                            StructProductData pd = new StructProductData();
+                            pd.descriptors = new List<Tuple<float[], int>>();
+                            pd.dom = new List<Tuple<List<KeyValuePair<double, CvScalar>>, int>>();
+                            pd.descriptorsBOW = new List<Tuple<float[], int>>();
+                            pd.id_product = nId;
+                            pd.name = strName;
+                            pd.imageurl = strImageurl;
+                            pd.buyurl = strBuyurl;
+                            pd.offer_id = strProductCode;
+
+                            if (!dictFound.ContainsKey(nId))
+                                {
+                                dictFound.Add(nId, pd);
+                                }
+                            }
+
+
+                        string strSQLDesc = "SELECT id_product_picture, id_product, dom_colors FROM db_product_pictures WHERE id_product IN ({0});";
+
+                        StringBuilder bld = new StringBuilder();
+
+                        int nCnt = 0;
+
+                        foreach (StructProductData dt in dictFound.Values)
+                            {
+                            if (nCnt == 0)
+                                bld.Append(dt.id_product.ToString());
+                            else
+                                bld.Append("," + dt.id_product.ToString());
+
+                            nCnt++;
+                            }
+
+                        string strIdList = bld.ToString();
+
+                        strSQLDesc = String.Format(strSQLDesc, strIdList);
+
+                        id.dbg1 += ";   " + strSQLDesc;
+
+                        NpgsqlCommand commandSelectDesc = new NpgsqlCommand();
+                        commandSelectDesc.Connection = conn;
+
+                        commandSelectDesc.CommandText = strSQLDesc;
+
+                        commandSelectDesc.Prepare();
+
+                        NpgsqlDataReader dataSelectDesc = commandSelectDesc.ExecuteReader();
+
+                        if (dataSelectDesc.HasRows)
+                            {
+                            while (dataSelectDesc.Read())
+                                {
+                                int nIdPP = dataSelectDesc.GetInt32(0);
+                                int nIdP = dataSelectDesc.GetInt32(1);
+
+                                if (!dataSelectDesc.IsDBNull(2))
+                                    {
+                                    long len_ = dataSelectDesc.GetBytes(2, 0, null, 0, 0);
+                                    byte[] d_ = new Byte[len_];
+
+                                    dataSelectDesc.GetBytes(2, 0, d_, 0, (int)len_);
+
+                                    List<KeyValuePair<double, CvScalar>> dom = ServUtility.GetByteArrayAsDomColors(d_);
+
+                                    dictFound[nIdP].dom.Add(new Tuple<List<KeyValuePair<double, CvScalar>>, int>(dom, nIdPP));
+                                    }
+                                }
+                            }
+
+                        lstFound.Clear();
+
+                        foreach (StructProductData st in dictFound.Values)
+                            {
+                            lstFound.Add(st);
+                            }
+
+                        for (int i = 0; i < lstFound.Count; ++i)
+                            {
+                            double dst = 100.0;
+                            double dst_dom = 10000.0;
+                            double dst_bow = 10000.0;
+                            int nIdPicBest = 0;
+
+
+                            for (int j = 0; j < lstFound[i].dom.Count; ++j)
+                                {
+                                List<KeyValuePair<double, CvScalar>> domReduced = ServUtility.ReduceDomColors(lstFound[i].dom[j].Item1);
+
+                                double dist_dom_reduced = 1000.0;
+
+                                dist_dom_reduced = ServUtility.calcColorDistance(domReduced, domModelReduced);
+
+                                if (dist_dom_reduced > 15.0)
+                                    continue;
+
+                                double dist_dom = ServUtility.calcColorDistance(lstFound[i].dom[j].Item1, domModel);
+
+                                if (dist_dom < dst_dom)
+                                    {
+                                    dst_dom = dist_dom;
+                                    nIdPicBest = lstFound[i].dom[j].Item2;
+                                    }
+                                }
+
+                            lstFound[i].distance_gist = dst;
+                            lstFound[i].id_product_photo = nIdPicBest;
+
+                            lstFound[i].distance_dom = dst_dom;
+                            lstFound[i].distance_bow = dst_bow;
+                            }
+
+                        lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                            {
+                            return p1.distance_dom.CompareTo(p2.distance_dom);
+                            }
+                            );
+
+                        for (int i = 0; i < lstFound.Count; ++i)
+                            {
+                            lstFound[i].rank_dom = i;
+                            }
+
+                        for (int i = 0; i < lstFound.Count; ++i)
+                            {
+                            //lstFound[i].rank_sum = /*lstFound[i].rank_gist + lstFound[i].rank_dom +*/ lstFound[i].rank_bow;
+                            lstFound[i].rank_sum = lstFound[i].rank_dom;
+                            }
+
+
+                        lstFound.Sort(delegate(StructProductData p1, StructProductData p2)
+                            {
+                            return p1.rank_sum.CompareTo(p2.rank_sum);
+                            }
+                            );
+                        }
+
+
+                    id.dbg2 += "products found by filters = " + lstFound.Count.ToString();
+
+                    const int nProductLimit = 10;
+
+                    if (lstFound.Count > nProductLimit)
+                        {
+                        lstFound.RemoveRange(nProductLimit, lstFound.Count - nProductLimit);
+                        }
+
+                    lstFound.RemoveAll(delegate(StructProductData p)
+                        {
+                        return p.distance_dom >= 15;
+                        }
+                        );
+
+                    foreach(StructProductData dt in lstFound)
+                        {
+                        StructSimiliarProduct prd = new StructSimiliarProduct();
+                        prd.offer_id = dt.offer_id;
+                        prd.name = dt.name;
+                        prd.image_url = dt.imageurl;
+                        prd.buy_url = dt.buyurl;
+                        prd.dom_dist = dt.distance_dom;
+
+                        id.offers.Add(prd);
+                        }   
+                        
+                    }
+
+                return id;
+                }
+            catch (Exception e)
+                {
+                id.result.message = e.Message;
+                id.result.result_code = ResultCode.Failure_InternalServiceError;
+
+                return id;
+                }
+            finally
+                {
+                sw.Stop();
+
+                if (conn != null)
+                    {
+                    string strBody = ServUtility.GetRequestBody();
+
+                    ServUtility.LogMethodCall(ref conn, -1, MethodBase.GetCurrentMethod().Name, id.result.ToString(), null, id.dbg2, args.locale, "", (int)sw.ElapsedMilliseconds, strBody);
+
+                    //if (events.result.result_code == ResultCode.Success)
+                    //    ServUtility.UpdateStatData(ref conn, -2, "consume", strLocale, "", id_, null);
+
+                    conn.Close();
+                    }
+                }
+            }
 
         
         }

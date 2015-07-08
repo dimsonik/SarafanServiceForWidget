@@ -71,6 +71,18 @@ namespace SarafanService
             return ReturnArray;
             }
 
+        [DllImport("libopencv_nonfree", EntryPoint = "calcBOWDescriptors", ExactSpelling = false, CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr calcBOWDescriptors(byte[] buffer, int nBuffSize, string vocabFilePath);
+        public static float[] calcBOWDescriptors_(byte[] buffer, int nBuffSize, string vocabFilePath)
+            {
+            float[] ReturnArray = new float[2000];
+            Marshal.Copy(calcBOWDescriptors(buffer, nBuffSize, vocabFilePath), ReturnArray, 0, 2000);
+            return ReturnArray;
+            }
+
+        //[DllImport("libopencv_core", CallingConvention = CallingConvention.Cdecl)]
+        //public static extern void cvReleaseImage(ref IntPtr image);
+
 
         public ServiceModule()
             {
@@ -122,6 +134,20 @@ namespace SarafanService
 
             /////////////////////////////////
             Get["/v1/status"] = _ => "OK";
+
+            
+            /////////////////////////////////
+            Post["/v1/opencv/test"] = x =>
+            {
+            StructResult res = new StructResult();
+
+            res = TestOpenCV();
+
+            return Negotiate
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithModel(res)
+                .WithContentType("application/json");
+            };
 
 
             /////////////////////////////////
@@ -323,13 +349,57 @@ namespace SarafanService
                     .WithContentType("application/json");
                 }
 
-            id = FindProducts(args);
+            // временная затычка (в клиенте жестко прписан магазин)
+            if (args.retailer_id_list != null && args.retailer_id_list.Count == 1 && args.retailer_id_list[0] == 6)
+                args.retailer_id_list[0] = 7;
+
+            id = FindProductsNew(args);
+            //id = FindProducts(args);
 
             return Negotiate
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithModel(id)
                 .WithContentType("application/json");
             };
+
+
+
+            /////////////////////////////////
+            Post["/v1/products/find_test"] = x =>
+            {
+                StructFindProductsArgs2 args = new StructFindProductsArgs2();
+
+                StructFindRequestId id = new StructFindRequestId();
+                id.result = new StructResult();
+
+                try
+                    {
+                    args = this.Bind<StructFindProductsArgs2>();
+                    }
+                catch
+                    {
+                    id.result.result_code = ResultCode.Failure_InvalidInputJson;
+                    id.result.message = "Invalid input JSON";
+
+                    return Negotiate
+                        .WithStatusCode(HttpStatusCode.OK)
+                        .WithModel(id)
+                        .WithContentType("application/json");
+                    }
+
+                // временная затычка (в клиенте жестко прписан магазин)
+                if (args.retailer_id_list != null && args.retailer_id_list.Count == 1 && args.retailer_id_list[0] == 6)
+                    args.retailer_id_list[0] = 7;
+
+                id = FindProductsNew(args);
+                //id = FindProducts2(args);
+
+                return Negotiate
+                    .WithStatusCode(HttpStatusCode.OK)
+                    .WithModel(id)
+                    .WithContentType("application/json");
+            };
+
 
 
 
@@ -364,6 +434,40 @@ namespace SarafanService
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithModel(products)
                 .WithContentType("application/json");
+            };
+            
+            
+            /////////////////////////////////
+            Post["/v1/similiar_products/find"] = x =>
+            {
+            StructFindSimiliarProductsArgs args = new StructFindSimiliarProductsArgs();
+
+            StructFindSimiliarResult id = new StructFindSimiliarResult();
+                id.result = new StructResult();
+
+                try
+                    {
+                    args = this.Bind<StructFindSimiliarProductsArgs>();
+                    }
+                catch
+                    {
+                    id.result.result_code = ResultCode.Failure_InvalidInputJson;
+                    id.result.message = "Invalid input JSON";
+
+                    return Negotiate
+                        .WithStatusCode(HttpStatusCode.OK)
+                        .WithModel(id)
+                        .WithContentType("application/json");
+                    }
+
+                args.id_retailer = 8; // временно
+
+                id = FindSimiliarProducts(args);
+
+                return Negotiate
+                    .WithStatusCode(HttpStatusCode.OK)
+                    .WithModel(id)
+                    .WithContentType("application/json");
             };
 
         }
