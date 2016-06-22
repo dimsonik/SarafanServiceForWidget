@@ -8,7 +8,7 @@ using System.Runtime.Serialization.Json;
 
 using System.Runtime.InteropServices;
 
-namespace SarafanService
+namespace SarafanServiceForWidget
 {
 
 	public enum ResultCode
@@ -94,7 +94,7 @@ public struct StructGetModelPictureArgs
 
 public struct StructFindSimiliarProductsArgs
     {
-    public string offer_id;
+    public string id_offer;
     public int id_retailer;
     public string locale;
     }
@@ -119,6 +119,16 @@ public struct StructRetailers
 
     public StructResult result;
     }
+
+public struct StructRetailersV2
+    {
+    public List<StructRetailer> retailers_native;
+    public List<StructRetailer> retailers_foreign;
+
+    public StructResult result;
+    }
+
+
 
 public struct StructRetailer
     {
@@ -154,8 +164,8 @@ public struct StructFindSimiliarResult
     {
     public List<StructSimiliarProduct> offers;
 
-    public string dbg1;
-    public string dbg2;
+    //public string dbg1;
+    //public string dbg2;
     //public string dbg3;
 
     public StructResult result;
@@ -163,7 +173,7 @@ public struct StructFindSimiliarResult
 
 public struct StructSimiliarProduct
     {
-    public string offer_id;
+    public string id_offer;
     public string name;
     public string image_url;
     public string buy_url;

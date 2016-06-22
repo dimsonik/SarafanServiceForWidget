@@ -41,7 +41,7 @@ using OpenCvSharp;
 
  //string [] fileEntries = Directory.GetFiles(targetDirectory);
 
-namespace SarafanService
+namespace SarafanServiceForWidget
 {
 
 	public class ServUtility
@@ -123,11 +123,44 @@ namespace SarafanService
 
 
         //////////////////////////////////////////////////////////////////////////
+        public static int GetCountryForIPAddress(ref NpgsqlConnection conn, string strIP)
+        {
+		int nIdCountry = -1;
+
+		int nIP = ServUtility.IPAddressToInt(strIP);
+
+
+        NpgsqlCommand command = new NpgsqlCommand();
+        command.Connection = conn;
+
+        command.CommandText = @"SELECT id_country FROM db_ip_ranges WHERE ip_num_1 = (SELECT MAX(ip_num_1) FROM db_ip_ranges WHERE ip_num_1 <= :ipn);";
+
+        command.Parameters.Add(new NpgsqlParameter("ipn", DbType.Int32));
+
+        command.Prepare();
+
+        command.Parameters[0].Value = nIP;
+
+        NpgsqlDataReader data = command.ExecuteReader();
+
+        if (data.HasRows)
+			{
+             data.Read();
+             nIdCountry = data.GetInt32(0);
+			}
+
+		return nIdCountry;
+        }
+
+
+
+
+        //////////////////////////////////////////////////////////////////////////
         public static void DeleteOutdatedSearchRequests(ref NpgsqlConnection conn)
         {
         NpgsqlCommand commandDeleteMarked = new NpgsqlCommand();
         commandDeleteMarked.Connection = conn;
-        commandDeleteMarked.CommandText = "DELETE FROM db_search_requests WHERE current_timestamp >= (\"timestamp\" + INTERVAL '5' DAY);";
+        commandDeleteMarked.CommandText = "DELETE FROM db_search_requests WHERE current_timestamp >= (\"timestamp\" + INTERVAL '15' DAY);";
         commandDeleteMarked.Prepare();
 
         commandDeleteMarked.ExecuteNonQuery();
@@ -139,7 +172,7 @@ namespace SarafanService
         {
         NpgsqlCommand commandDeleteMarked = new NpgsqlCommand();
         commandDeleteMarked.Connection = conn;
-        commandDeleteMarked.CommandText = "DELETE FROM db_model_pictures WHERE current_timestamp >= (\"timestamp\" + INTERVAL '5' DAY);";
+        commandDeleteMarked.CommandText = "DELETE FROM db_model_pictures WHERE current_timestamp >= (\"timestamp\" + INTERVAL '15' DAY);";
         commandDeleteMarked.Prepare();
 
         commandDeleteMarked.ExecuteNonQuery();
@@ -195,7 +228,23 @@ namespace SarafanService
 		
 		return arrRes;	
 		}
+		
+		
+		//////////////////////////////////////////////////////////////////////////
+		public static int IPAddressToInt(string strIP)
+		{
+        List<String> listIpElements;
+        listIpElements = strIP.Split('.').ToList(); ;
 
+        int ip3 = System.Convert.ToInt32(listIpElements[0]);
+        int ip2 = System.Convert.ToInt32(listIpElements[1]);
+        int ip1 = System.Convert.ToInt32(listIpElements[2]);
+        int ip0 = System.Convert.ToInt32(listIpElements[3]);
+
+        int ip_int = ip3 * (int) Math.Pow(256, 3) + ip2 * (int) Math.Pow(256, 2) + ip1 * (int) Math.Pow(256, 1) + ip0 * (int) Math.Pow(256, 0);
+
+		return ip_int;
+		}
 
 		//////////////////////////////////////////////////////////////////////////
 		public static string JoinArrayList(ArrayList arr, string strSep)

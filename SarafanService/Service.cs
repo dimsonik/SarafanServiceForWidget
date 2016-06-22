@@ -31,7 +31,7 @@ using Nancy.TinyIoc;
 using Npgsql;
 using NpgsqlTypes;
 
-namespace SarafanService
+namespace SarafanServiceForWidget
     {
 
     public class MyBootstrapper : Nancy.DefaultNancyBootstrapper
@@ -115,18 +115,6 @@ namespace SarafanService
             };
 
 
-            //After += ctx =>
-            //{
-            //var h = ctx.Response.Headers;
-
-            //ctx.Response.Headers.Remove("Link");
-            //ctx.Response.Headers.Remove("Vary");
-
-
-            //var h2 = h;
-            //};
-
-
 
             /////////////////////////////////
             Get["/status"] = _ => "OK";
@@ -147,6 +135,31 @@ namespace SarafanService
                 .WithStatusCode(HttpStatusCode.OK)
                 .WithModel(res)
                 .WithContentType("application/json");
+            };
+
+
+
+            /////////////////////////////////
+            Post["/v1/math/test"] = x =>
+            {
+            string res = TestMath();
+
+            return Negotiate
+                .WithStatusCode(HttpStatusCode.OK)
+                .WithModel(res)
+                .WithContentType("application/json");
+            };
+
+
+            /////////////////////////////////
+            Post["/v1/db/test"] = x =>
+            {
+                string res = TestDB();
+
+                return Negotiate
+                    .WithStatusCode(HttpStatusCode.OK)
+                    .WithModel(res)
+                    .WithContentType("application/json");
             };
 
 
@@ -182,263 +195,10 @@ namespace SarafanService
             };
 
 
-            /////////////////////////////////
-            Post["/v1/descriptors/reset"] = x =>
-            {
-            StructResult res = new StructResult();
-
-            res = ResetDescriptors();
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(res)
-                .WithContentType("application/json");
-            };
-
-
-            /////////////////////////////////
-            Post["/v1/pics/compare"] = x =>
-            {
-            StructComparePicturesArgs args = new StructComparePicturesArgs();
-
-            StructPicturesCompared res = new StructPicturesCompared();
-            res.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructComparePicturesArgs>();
-                }
-            catch
-                {
-                res.result.result_code = ResultCode.Failure_InvalidInputJson;
-                res.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(res)
-                    .WithContentType("application/json");
-                }
-
-            res = ComparePictures(args);
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(res)
-                .WithContentType("application/json");
-            };
-
-
-
-
-            /////////////////////////////////
-            Post["/v1/filters/get"] = x =>
-            {
-            StructGetFiltersArgs args = new StructGetFiltersArgs();
-
-            StructFilters filters = new StructFilters();
-            filters.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructGetFiltersArgs>();
-                }
-            catch
-                {
-                filters.result.result_code = ResultCode.Failure_InvalidInputJson;
-                filters.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(filters)
-                    .WithContentType("application/json");
-                }
-
-            filters = GetFilters(args);
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(filters)
-                    .WithContentType("application/json");
-            };
-
-
-            /////////////////////////////////
-            Post["/v1/model_picture/put"] = x =>
-            {
-            StructPutModelPictureArgs args = new StructPutModelPictureArgs();
-            
-            StructModelPictureId id = new StructModelPictureId();
-            id.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructPutModelPictureArgs>();
-                }
-            catch
-                {
-                id.result.result_code = ResultCode.Failure_InvalidInputJson;
-                id.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(id)
-                    .WithContentType("application/json");
-                }
-
-            id = SetModelPicture(args);
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(id)
-                .WithContentType("application/json");
-            };
-
-
-            /////////////////////////////////
-            Post["/v1/model_picture/get"] = x =>
-            {
-            StructGetModelPictureArgs args = new StructGetModelPictureArgs();
-
-            StructModelPicture id = new StructModelPicture();
-            id.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructGetModelPictureArgs>();
-                }
-            catch
-                {
-                id.result.result_code = ResultCode.Failure_InvalidInputJson;
-                id.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(id)
-                    .WithContentType("application/json");
-                }
-
-            id = GetModelPicture(args);
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(id)
-                .WithContentType("application/json");
-            };
-
-
-            /////////////////////////////////
-            Post["/v1/products/find"] = x =>
-            {
-            StructFindProductsArgs2 args = new StructFindProductsArgs2();
-
-            StructFindRequestId id = new StructFindRequestId();
-            id.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructFindProductsArgs2>();
-                }
-            catch
-                {
-                id.result.result_code = ResultCode.Failure_InvalidInputJson;
-                id.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(id)
-                    .WithContentType("application/json");
-                }
-
-            // временная затычка (в клиенте жестко прписан магазин)
-            if (args.retailer_id_list != null && args.retailer_id_list.Count == 1 && args.retailer_id_list[0] == 6)
-                args.retailer_id_list[0] = 7;
-
-            id = FindProductsNew(args);
-            //id = FindProducts(args);
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(id)
-                .WithContentType("application/json");
-            };
-
-
-
-            /////////////////////////////////
-            Post["/v1/products/find_test"] = x =>
-            {
-                StructFindProductsArgs2 args = new StructFindProductsArgs2();
-
-                StructFindRequestId id = new StructFindRequestId();
-                id.result = new StructResult();
-
-                try
-                    {
-                    args = this.Bind<StructFindProductsArgs2>();
-                    }
-                catch
-                    {
-                    id.result.result_code = ResultCode.Failure_InvalidInputJson;
-                    id.result.message = "Invalid input JSON";
-
-                    return Negotiate
-                        .WithStatusCode(HttpStatusCode.OK)
-                        .WithModel(id)
-                        .WithContentType("application/json");
-                    }
-
-                // временная затычка (в клиенте жестко прписан магазин)
-                if (args.retailer_id_list != null && args.retailer_id_list.Count == 1 && args.retailer_id_list[0] == 6)
-                    args.retailer_id_list[0] = 7;
-
-                id = FindProductsNew(args);
-                //id = FindProducts2(args);
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(id)
-                    .WithContentType("application/json");
-            };
-
-
-
-
-            /////////////////////////////////
-            Post["/v1/product_info/get"] = x =>
-            {
-            StructGetProductInfoArgs args = new StructGetProductInfoArgs();
-
-            StructProducts products = new StructProducts();
-            products.products = new List<StructProduct>();
-            products.result = new StructResult();
-
-            try
-                {
-                args = this.Bind<StructGetProductInfoArgs>();
-                }
-            catch
-                {
-                products.result.result_code = ResultCode.Failure_InvalidInputJson;
-                products.result.message = "Invalid input JSON";
-
-                return Negotiate
-                    .WithStatusCode(HttpStatusCode.OK)
-                    .WithModel(products)
-                    .WithContentType("application/json");
-                }
-
-
-            products = GetProductsInfo(args);
-
-            return Negotiate
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithModel(products)
-                .WithContentType("application/json");
-            };
             
             
             /////////////////////////////////
-            Post["/v1/similiar_products/find"] = x =>
+            Post["/v1/offers/get"] = x =>
             {
             StructFindSimiliarProductsArgs args = new StructFindSimiliarProductsArgs();
 
@@ -460,7 +220,7 @@ namespace SarafanService
                         .WithContentType("application/json");
                     }
 
-                args.id_retailer = 8; // временно
+                //args.id_retailer = 8; // временно
 
                 id = FindSimiliarProducts(args);
 
@@ -470,12 +230,10 @@ namespace SarafanService
                     .WithContentType("application/json");
             };
 
+
+
+
         }
-
-
-
-
-
 
 
         }
