@@ -1,0 +1,5 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/packages/OpenCvSharp-AnyCPU.2.4.10.20150203/Content/dll
